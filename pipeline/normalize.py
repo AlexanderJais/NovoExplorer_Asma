@@ -273,6 +273,11 @@ def compute_log2_transform(
     pd.DataFrame
         log2(df + pseudocount).
     """
+    if pseudocount <= 0:
+        raise ValueError(
+            f"pseudocount must be positive, got {pseudocount}. "
+            "A non-positive pseudocount produces -Inf or NaN values."
+        )
     result = np.log2(df + pseudocount)
     logger.info(
         "Applied log2 transform (pseudocount=%g) to %d genes x %d samples.",

@@ -357,6 +357,14 @@ def detect_outliers(
         Sample IDs flagged as outliers.
     """
     # Use first 2 PCs
+    if pca_coords.shape[1] < 2:
+        logger.warning(
+            "Outlier detection requires at least 2 principal components; "
+            "only %d available. Skipping.",
+            pca_coords.shape[1],
+        )
+        return []
+
     pc_cols = pca_coords.columns[:2]
     coords_2d = pca_coords[pc_cols]
 

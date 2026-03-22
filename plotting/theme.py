@@ -3,10 +3,8 @@
 from __future__ import annotations
 
 import matplotlib as mpl
-import matplotlib.pyplot as plt
 import seaborn as sns
 import plotly.graph_objects as go
-import plotly.io as pio
 
 # ---------------------------------------------------------------------------
 # Colour palettes

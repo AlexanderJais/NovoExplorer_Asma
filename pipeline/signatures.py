@@ -282,20 +282,29 @@ def run_enrichment_analysis(
 
         # Determine gene name column
         gene_col = "gene_name" if "gene_name" in deg_df.columns else "gene_id"
+        if gene_col not in deg_df.columns:
+            logger.warning(
+                "Comparison '%s' lacks gene_name/gene_id columns; skipping.",
+                comp_name,
+            )
+            continue
 
         # Identify significant genes
+        has_required = "padj" in deg_df.columns and "log2fc" in deg_df.columns
         sig_mask = (
             (deg_df["padj"] < padj_thresh)
             & (deg_df["log2fc"].abs() > log2fc_thresh)
-        ) if ("padj" in deg_df.columns and "log2fc" in deg_df.columns) else pd.Series(
-            False, index=deg_df.index
-        )
+        ) if has_required else pd.Series(False, index=deg_df.index)
 
-        up_genes = deg_df.loc[sig_mask & (deg_df["log2fc"] > 0), gene_col].dropna().unique().tolist()
-        down_genes = deg_df.loc[sig_mask & (deg_df["log2fc"] < 0), gene_col].dropna().unique().tolist()
+        if has_required:
+            up_genes = deg_df.loc[sig_mask & (deg_df["log2fc"] > 0), gene_col].dropna().unique().tolist()
+            down_genes = deg_df.loc[sig_mask & (deg_df["log2fc"] < 0), gene_col].dropna().unique().tolist()
+        else:
+            up_genes = []
+            down_genes = []
 
         # Background: all genes in this comparison
-        all_genes = deg_df[gene_col].dropna().unique().tolist() if gene_col in deg_df.columns else None
+        all_genes = deg_df[gene_col].dropna().unique().tolist()
 
         logger.info(
             "  %s: %d up-regulated, %d down-regulated genes.",

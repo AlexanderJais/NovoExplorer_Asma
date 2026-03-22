@@ -8,13 +8,7 @@ import plotly.graph_objects as go
 
 from novoview.plotting.theme import (
     WONG_PALETTE,
-    VOLCANO_COLORS,
-    DIVERGING_CMAP,
-    SEQUENTIAL_CMAP,
     apply_plotly_theme,
-    apply_matplotlib_theme,
-    get_plotly_template,
-    format_axis_label,
 )
 
 
@@ -28,9 +22,12 @@ _SPARK_CHARS = " " + "\u2581\u2582\u2583\u2584\u2585\u2586\u2587\u2588"
 def _sparkline(values: np.ndarray) -> str:
     """Return a Unicode sparkline-style mini bar string for *values*."""
     v = np.asarray(values, dtype=float)
-    if np.isnan(v).all() or v.max() == v.min():
+    vmin, vmax = np.nanmin(v), np.nanmax(v)
+    if np.isnan(vmin) or vmin == vmax:
         return _SPARK_CHARS[4] * len(v)
-    normed = (v - np.nanmin(v)) / (np.nanmax(v) - np.nanmin(v))
+    normed = (v - vmin) / (vmax - vmin)
+    # NaN values get mapped to the middle character
+    normed = np.where(np.isnan(normed), 0.5, normed)
     indices = np.clip((normed * 7).astype(int), 0, 7)
     return "".join(_SPARK_CHARS[1 + i] for i in indices)
 
@@ -108,7 +105,10 @@ def create_gene_network(
     sim = similarity_matrix.copy()
 
     # Zero out the diagonal to ignore self-similarity
-    np.fill_diagonal(sim.values, 0)
+    # Use .to_numpy() to get a writable array (DataFrame.values can be read-only)
+    sim_arr = sim.to_numpy(copy=True)
+    np.fill_diagonal(sim_arr, 0)
+    sim = pd.DataFrame(sim_arr, index=sim.index, columns=sim.columns)
 
     # Select top N most connected genes
     degree = sim.sum(axis=1).sort_values(ascending=False)

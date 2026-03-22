@@ -51,9 +51,9 @@ def classify_regulation(
     padj : float
         Adjusted p-value.
     log2fc_threshold : float, optional
-        Absolute log2FC must exceed this value (default 1.0).
+        Absolute log2FC must be at least this value (default 1.0).
     padj_threshold : float, optional
-        Adjusted p-value must be below this value (default 0.05).
+        Adjusted p-value must be at most this value (default 0.05).
 
     Returns
     -------
@@ -62,9 +62,9 @@ def classify_regulation(
     """
     if pd.isna(padj) or pd.isna(log2fc):
         return "ns"
-    if padj < padj_threshold and log2fc > log2fc_threshold:
+    if padj <= padj_threshold and log2fc >= log2fc_threshold:
         return "up"
-    if padj < padj_threshold and log2fc < -log2fc_threshold:
+    if padj <= padj_threshold and log2fc <= -log2fc_threshold:
         return "down"
     return "ns"
 

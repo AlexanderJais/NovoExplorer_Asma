@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 import seaborn as sns
 import plotly.graph_objects as go
 from scipy.cluster.hierarchy import linkage, leaves_list
@@ -12,13 +11,9 @@ from scipy.spatial.distance import pdist
 
 from novoview.plotting.theme import (
     WONG_PALETTE,
-    VOLCANO_COLORS,
     DIVERGING_CMAP,
-    SEQUENTIAL_CMAP,
     apply_plotly_theme,
     apply_matplotlib_theme,
-    get_plotly_template,
-    format_axis_label,
 )
 
 

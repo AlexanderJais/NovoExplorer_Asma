@@ -242,13 +242,20 @@ def load_results(output_path: str | Path) -> Dict[str, Any]:
                 results["deg"] = deg
 
             # ---- Enrichment ----
-            enrichment: Dict[str, Dict[str, pd.DataFrame]] = {}
+            # Keys may be 2-level (/enrichment/comp/db) for flat or
+            # 3-level (/enrichment/comp/db/sub) for nested structures.
+            # Reconstruct the original nesting.
+            enrichment: Dict[str, Dict[str, Any]] = {}
             for key in keys:
                 if key.startswith("/enrichment/"):
-                    parts = key.split("/enrichment/", 1)[1].strip("/").split("/", 1)
-                    if len(parts) == 2:
-                        comp_name, db_name = parts
+                    remainder = key.split("/enrichment/", 1)[1].strip("/")
+                    segments = remainder.split("/")
+                    if len(segments) == 2:
+                        comp_name, db_name = segments
                         enrichment.setdefault(comp_name, {})[db_name] = store.get(key)
+                    elif len(segments) == 3:
+                        comp_name, db_name, sub_name = segments
+                        enrichment.setdefault(comp_name, {}).setdefault(db_name, {})[sub_name] = store.get(key)
             if enrichment:
                 results["enrichment"] = enrichment
 
@@ -420,20 +427,23 @@ def load_enrichment(
                 )
                 return _safe_get(store, key)
 
-            # Collect all enrichment keys
-            enrichment: Dict[str, Dict[str, pd.DataFrame]] = {}
+            # Collect all enrichment keys, reconstructing nesting
+            enrichment: Dict[str, Dict[str, Any]] = {}
             for key in store.keys():
                 if key.startswith("/enrichment/"):
-                    parts = (
-                        key.split("/enrichment/", 1)[1].strip("/").split("/", 1)
-                    )
-                    if len(parts) == 2:
-                        comp, db = parts
+                    remainder = key.split("/enrichment/", 1)[1].strip("/")
+                    segments = remainder.split("/")
+                    if len(segments) == 2:
+                        comp, db = segments
                         enrichment.setdefault(comp, {})[db] = store.get(key)
+                    elif len(segments) == 3:
+                        comp, db, sub = segments
+                        enrichment.setdefault(comp, {}).setdefault(db, {})[sub] = store.get(key)
 
             if comparison is not None:
+                # Try both raw and sanitized name
                 sanitized = _sanitize_name(comparison)
-                return enrichment.get(sanitized)
+                return enrichment.get(sanitized) or enrichment.get(comparison)
 
             return enrichment if enrichment else None
 

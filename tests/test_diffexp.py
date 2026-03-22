@@ -64,6 +64,12 @@ class TestClassifyRegulation:
         assert classify_regulation(0.5, 0.01, log2fc_threshold=0.3) == "up"
         assert classify_regulation(-0.5, 0.01, log2fc_threshold=0.3) == "down"
 
+    def test_boundary_values_inclusive(self):
+        """Genes exactly at threshold should be classified as significant."""
+        assert classify_regulation(1.0, 0.05) == "up"
+        assert classify_regulation(-1.0, 0.05) == "down"
+        assert classify_regulation(1.0, 0.05, log2fc_threshold=1.0, padj_threshold=0.05) == "up"
+
 
 class TestParseNovoGeneDeg:
     def test_returns_cleaned_dict(self):

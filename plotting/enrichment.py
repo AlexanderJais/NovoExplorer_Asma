@@ -8,12 +8,8 @@ import plotly.graph_objects as go
 
 from novoview.plotting.theme import (
     WONG_PALETTE,
-    VOLCANO_COLORS,
-    DIVERGING_CMAP,
     SEQUENTIAL_CMAP,
     apply_plotly_theme,
-    apply_matplotlib_theme,
-    get_plotly_template,
     format_axis_label,
 )
 
