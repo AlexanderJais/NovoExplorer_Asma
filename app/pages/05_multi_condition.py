@@ -36,12 +36,19 @@ from app.components.download import download_csv_button
 from app.components.shared import get_data_path, check_data_path, fmt_count
 
 # ---------------------------------------------------------------------------
+# Page configuration
+# ---------------------------------------------------------------------------
+
+st.set_page_config(page_title="Multi-Condition Comparison", layout="wide")
+
+# ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
 
 _VERMILION = "#D55E00"
 _BLUE = "#0072B2"
 _GRAY = "#BBBBBB"
+_MAX_TABLE_DISPLAY_ROWS = 200
 
 _get_data_path = get_data_path
 
@@ -606,8 +613,7 @@ def main() -> None:
             )
 
         # Limit display to 200 rows in HTML, offer CSV for full data
-        max_display = 200
-        displayed_rows = html_rows[:max_display]
+        displayed_rows = html_rows[:_MAX_TABLE_DISPLAY_ROWS]
 
         html_table = f"""
         <div style="max-height:500px; overflow-y:auto; border:1px solid #E5E5E5;
@@ -623,9 +629,9 @@ def main() -> None:
         </div>
         """
 
-        if len(html_rows) > max_display:
+        if len(html_rows) > _MAX_TABLE_DISPLAY_ROWS:
             st.markdown(
-                f"Showing first {max_display} of {len(html_rows)} genes. "
+                f"Showing first {_MAX_TABLE_DISPLAY_ROWS} of {len(html_rows)} genes. "
                 "Download CSV for the full table."
             )
 

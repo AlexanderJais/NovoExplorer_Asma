@@ -179,7 +179,7 @@ def standardize_expression_matrix(
                         "Symbol mapping introduced duplicates -- summing."
                     )
                     result = result.groupby(level=0).sum()
-    except Exception as exc:  # noqa: BLE001
+    except (FileNotFoundError, ValueError, KeyError, OSError) as exc:
         logger.warning(
             "Could not load gene ID mapping for organism '%s': %s",
             organism,
