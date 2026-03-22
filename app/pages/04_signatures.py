@@ -29,12 +29,6 @@ from app.components.download import download_csv_button, download_figure_buttons
 from app.components.shared import get_data_path, check_data_path, table_height
 
 # ---------------------------------------------------------------------------
-# Page configuration
-# ---------------------------------------------------------------------------
-
-st.set_page_config(page_title="Signatures & Pathways", layout="wide")
-
-# ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
 

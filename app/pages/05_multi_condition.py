@@ -36,12 +36,6 @@ from app.components.download import download_csv_button
 from app.components.shared import get_data_path, check_data_path, fmt_count
 
 # ---------------------------------------------------------------------------
-# Page configuration
-# ---------------------------------------------------------------------------
-
-st.set_page_config(page_title="Multi-Condition Comparison", layout="wide")
-
-# ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
 
