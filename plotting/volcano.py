@@ -77,7 +77,7 @@ def create_volcano_plotly(
     -------
     plotly.graph_objects.Figure
     """
-    df = deg_df.copy()
+    df = deg_df.dropna(subset=["padj", "log2fc"]).copy()
     df["neg_log10_padj"] = -np.log10(df["padj"].clip(lower=1e-300))
     category = _classify_genes(df, padj_threshold, log2fc_threshold)
 
@@ -191,7 +191,7 @@ def create_volcano_matplotlib(
 
     apply_matplotlib_theme()
 
-    df = deg_df.copy()
+    df = deg_df.dropna(subset=["padj", "log2fc"]).copy()
     df["neg_log10_padj"] = -np.log10(df["padj"].clip(lower=1e-300))
     category = _classify_genes(df, padj_threshold, log2fc_threshold)
 

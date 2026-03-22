@@ -38,8 +38,8 @@ _PAGE_DIR = _APP_DIR / "pages"
 
 _PAGES = [
     st.Page(str(_PAGE_DIR / "01_overview.py"), title="Overview", icon="\U0001F4CA"),
-    st.Page(str(_PAGE_DIR / "02_expression.py"), title="Expression", icon="\U0001F9EC"),
-    st.Page(str(_PAGE_DIR / "03_deg.py"), title="Differential Expression", icon="\U0001F30B"),
+    st.Page(str(_PAGE_DIR / "02_diffexp.py"), title="Differential Expression", icon="\U0001F30B"),
+    st.Page(str(_PAGE_DIR / "03_gene_search.py"), title="Gene Search", icon="\U0001F9EC"),
     st.Page(str(_PAGE_DIR / "04_signatures.py"), title="Signatures & Pathways", icon="\U0001F9E9"),
     st.Page(str(_PAGE_DIR / "05_multi_condition.py"), title="Multi-Condition", icon="\U0001F504"),
 ]
@@ -147,8 +147,8 @@ with st.sidebar:
     # Page links for quick reference
     st.markdown("### Pages")
     st.page_link(str(_PAGE_DIR / "01_overview.py"), label="Overview", icon="\U0001F4CA")
-    st.page_link(str(_PAGE_DIR / "02_expression.py"), label="Expression", icon="\U0001F9EC")
-    st.page_link(str(_PAGE_DIR / "03_deg.py"), label="Differential Expression", icon="\U0001F30B")
+    st.page_link(str(_PAGE_DIR / "02_diffexp.py"), label="Differential Expression", icon="\U0001F30B")
+    st.page_link(str(_PAGE_DIR / "03_gene_search.py"), label="Gene Search", icon="\U0001F9EC")
     st.page_link(str(_PAGE_DIR / "04_signatures.py"), label="Signatures & Pathways", icon="\U0001F9E9")
     st.page_link(str(_PAGE_DIR / "05_multi_condition.py"), label="Multi-Condition", icon="\U0001F504")
 
@@ -170,7 +170,7 @@ with st.sidebar:
 # ---------------------------------------------------------------------------
 
 # Filter to only pages whose files exist (graceful degradation during dev)
-available_pages = [p for p in _PAGES if Path(p.url_path if hasattr(p, 'url_path') else str(p)).exists() or True]
+available_pages = _PAGES
 
 nav = st.navigation(available_pages)
 nav.run()

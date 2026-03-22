@@ -201,6 +201,11 @@ def cluster_genes(
             # Too few clusters – decrease cut height to split more
             hi = mid
 
+    if best_labels is None:
+        logger.warning("Clustering produced no valid labels; assigning all genes to cluster 0.")
+        best_labels = np.zeros(len(similarity_matrix), dtype=int)
+        best_n = 1
+
     cluster_labels = pd.Series(best_labels, index=similarity_matrix.index, name="cluster_id")
     logger.info("Produced %d clusters.", best_n)
 
@@ -224,8 +229,8 @@ def compute_expression_signature_vectors(
     ----------
     deg_results : dict[str, pd.DataFrame]
         Mapping of comparison name -> DataFrame.  Each DataFrame must
-        contain at least a ``'gene'`` column and a ``'log2FoldChange'``
-        column (case-sensitive).
+        contain a gene identifier column (``'gene_name'`` or ``'gene_id'``)
+        and a fold-change column (``'log2fc'`` or ``'log2FoldChange'``).
 
     Returns
     -------
@@ -240,7 +245,31 @@ def compute_expression_signature_vectors(
 
     pieces: dict[str, pd.Series] = {}
     for comparison_name, df in deg_results.items():
-        series = df.set_index("gene")["log2FoldChange"]
+        # Determine the gene identifier column (standardized names)
+        if "gene_name" in df.columns:
+            gene_col = "gene_name"
+        elif "gene_id" in df.columns:
+            gene_col = "gene_id"
+        else:
+            logger.warning(
+                "Comparison '%s': no gene_name or gene_id column found, skipping.",
+                comparison_name,
+            )
+            continue
+
+        # Determine the log2FC column (standardized name)
+        if "log2fc" in df.columns:
+            fc_col = "log2fc"
+        elif "log2FoldChange" in df.columns:
+            fc_col = "log2FoldChange"
+        else:
+            logger.warning(
+                "Comparison '%s': no log2fc column found, skipping.",
+                comparison_name,
+            )
+            continue
+
+        series = df.set_index(gene_col)[fc_col]
         # If duplicates exist, keep the first occurrence
         series = series[~series.index.duplicated(keep="first")]
         pieces[comparison_name] = series

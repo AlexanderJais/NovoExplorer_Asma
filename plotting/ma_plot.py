@@ -63,7 +63,7 @@ def create_ma_plot_plotly(
     -------
     plotly.graph_objects.Figure
     """
-    df = deg_df.copy()
+    df = deg_df.dropna(subset=["log2fc", "padj", "basemean"]).copy()
     df["log2_basemean"] = np.log2(df["basemean"].clip(lower=1e-10))
     category = _classify_genes(df, padj_threshold, log2fc_threshold)
 
@@ -145,7 +145,7 @@ def create_ma_plot_matplotlib(
     """
     apply_matplotlib_theme()
 
-    df = deg_df.copy()
+    df = deg_df.dropna(subset=["log2fc", "padj", "basemean"]).copy()
     df["log2_basemean"] = np.log2(df["basemean"].clip(lower=1e-10))
     category = _classify_genes(df, padj_threshold, log2fc_threshold)
 

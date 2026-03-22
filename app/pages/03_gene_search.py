@@ -55,7 +55,9 @@ DEFAULT_DATA_PATH = str(_NOVOVIEW_ROOT / "results" / "novoview_results.h5")
 
 
 def _get_data_path() -> str:
-    return st.session_state.get(DATA_PATH_KEY, DEFAULT_DATA_PATH)
+    # Check the canonical key set by app.py first, then local fallback
+    return st.session_state.get("results_path",
+           st.session_state.get(DATA_PATH_KEY, DEFAULT_DATA_PATH))
 
 
 # ---------------------------------------------------------------------------

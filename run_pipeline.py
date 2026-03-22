@@ -178,7 +178,7 @@ def run_pipeline(config: Dict[str, Any]) -> None:
         "Signatures",
         signatures.run_signatures,
         deg_results=primary_deg,
-        expression_df=log2_expr,
+        enrichment_results_novogene=ingested.get("enrichment") if ingested else None,
         config=config,
     )
 

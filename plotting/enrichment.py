@@ -23,7 +23,7 @@ def _prepare_enrichment(
     max_terms: int,
 ) -> pd.DataFrame:
     """Sort by significance and keep top terms."""
-    df = enrichment_df.copy()
+    df = enrichment_df.dropna(subset=["padj"]).copy()
     df["neg_log10_padj"] = -np.log10(df["padj"].clip(lower=1e-300))
     df = df.sort_values("padj", ascending=True).head(max_terms)
     # Reverse so most significant is at top when plotted on y-axis

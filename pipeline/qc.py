@@ -354,7 +354,8 @@ def detect_outliers(
 
     outliers = []
 
-    for group_label, members in sample_groups.groupby(sample_groups):
+    for group_label in sample_groups.unique():
+        members = sample_groups[sample_groups == group_label]
         group_samples = members.index.intersection(coords_2d.index)
         if len(group_samples) < 2:
             continue
