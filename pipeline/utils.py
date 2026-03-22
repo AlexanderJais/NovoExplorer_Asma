@@ -6,7 +6,6 @@ flexible file reading, and configuration loading.
 """
 
 import logging
-import os
 from pathlib import Path
 
 import numpy as np

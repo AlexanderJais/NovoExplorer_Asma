@@ -22,9 +22,9 @@ _NOVOVIEW_ROOT = Path(__file__).resolve().parents[2]
 if str(_NOVOVIEW_ROOT) not in sys.path:
     sys.path.insert(0, str(_NOVOVIEW_ROOT))
 
-from pipeline.persistence import load_enrichment, load_deg, load_signatures
+from pipeline.persistence import load_enrichment, load_signatures
 from plotting.enrichment import create_enrichment_dotplot
-from plotting.theme import apply_plotly_theme, get_nature_colorscale, WONG_PALETTE
+from plotting.theme import apply_plotly_theme, get_nature_colorscale
 from app.components.download import download_csv_button, download_figure_buttons
 from app.components.shared import get_data_path, check_data_path, table_height
 
@@ -56,11 +56,6 @@ _get_data_path = get_data_path
 @st.cache_data(show_spinner="Loading enrichment data...")
 def _load_enrichment(path: str) -> dict | None:
     return load_enrichment(path)
-
-
-@st.cache_data(show_spinner="Loading DEG data...")
-def _load_deg(path: str) -> dict | None:
-    return load_deg(path)
 
 
 @st.cache_data(show_spinner="Loading signature data...")

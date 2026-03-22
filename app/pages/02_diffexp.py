@@ -11,7 +11,6 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 
@@ -30,12 +29,6 @@ from pipeline.persistence import (  # noqa: E402
 )
 from plotting.volcano import create_volcano_plotly  # noqa: E402
 from plotting.ma_plot import create_ma_plot_plotly  # noqa: E402
-from plotting.theme import (  # noqa: E402
-    WONG_PALETTE,
-    VOLCANO_COLORS,
-    apply_plotly_theme,
-    format_axis_label,
-)
 from app.components.filters import (  # noqa: E402
     comparison_selector,
     threshold_sliders,
