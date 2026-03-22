@@ -134,7 +134,7 @@ def create_gene_network(
     # Keep only edges above the median similarity among the selected genes
     upper_tri = np.triu_indices(n, k=1)
     edge_weights = adj[upper_tri]
-    threshold = np.percentile(edge_weights[edge_weights > 0], 50) if (edge_weights > 0).any() else 0
+    threshold = np.percentile(edge_weights[edge_weights > 0], 50) if (edge_weights > 0).any() else 1e-10
 
     edge_x: list[float | None] = []
     edge_y: list[float | None] = []

@@ -173,7 +173,7 @@ def create_heatmap_plotly(
             z=zscored.values,
             x=zscored.columns.tolist(),
             y=zscored.index.tolist(),
-            colorscale="RdBu_r",
+            colorscale=DIVERGING_CMAP,
             zmid=0,
             zmin=-3,
             zmax=3,

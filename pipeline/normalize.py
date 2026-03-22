@@ -242,6 +242,12 @@ def compute_tpm_from_counts(
 
     # Normalise each sample so that rates sum to 1e6
     rate_sum = rate.sum(axis=0)
+    zero_samples = (rate_sum == 0).sum()
+    if zero_samples > 0:
+        logger.warning(
+            "%d sample(s) have zero total counts -- TPM will be NaN for those.",
+            zero_samples,
+        )
     rate_sum = rate_sum.replace(0, np.nan)  # avoid division by zero
     tpm = rate.div(rate_sum, axis=1) * 1e6
 

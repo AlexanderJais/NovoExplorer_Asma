@@ -335,7 +335,13 @@ def read_table_flexible(path) -> pd.DataFrame:
 
     # Strategy 3: Excel
     try:
-        df = pd.read_excel(path)
+        xls = pd.ExcelFile(path)
+        if len(xls.sheet_names) > 1:
+            _logger.warning(
+                "Excel file '%s' has %d sheets; reading only the first ('%s').",
+                path.name, len(xls.sheet_names), xls.sheet_names[0],
+            )
+        df = pd.read_excel(xls, sheet_name=0)
         return df
     except Exception:
         pass
@@ -383,10 +389,19 @@ def load_config(path) -> dict:
     if not path.exists():
         raise FileNotFoundError(f"Configuration file not found: {path}")
 
-    with open(path, "r", encoding="utf-8") as fh:
-        user_config = yaml.safe_load(fh)
+    try:
+        with open(path, "r", encoding="utf-8") as fh:
+            user_config = yaml.safe_load(fh)
+    except yaml.YAMLError as exc:
+        _logger.error(
+            "Failed to parse YAML configuration '%s': %s. "
+            "Using default configuration.",
+            path, exc,
+        )
+        return dict(_DEFAULT_CONFIG)
 
     if user_config is None:
+        _logger.warning("Configuration file '%s' is empty; using defaults.", path)
         user_config = {}
 
     config = {**_DEFAULT_CONFIG, **user_config}

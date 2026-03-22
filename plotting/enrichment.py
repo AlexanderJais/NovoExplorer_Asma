@@ -93,7 +93,7 @@ def create_enrichment_dotplot(
             marker=dict(
                 size=marker_sizes,
                 color=df["neg_log10_padj"],
-                colorscale="Viridis",
+                colorscale=SEQUENTIAL_CMAP,
                 showscale=True,
                 colorbar=dict(
                     title="-log10(padj)",
@@ -104,8 +104,8 @@ def create_enrichment_dotplot(
             hovertemplate=(
                 "<b>%{y}</b><br>"
                 f"{x_label}: %{{x:.3f}}<br>"
-                "Gene count: %{text}<br>"
-                "-log10(padj): %{marker.color:.2f}<extra></extra>"
+                + ("Gene count: %{text}<br>" if "gene_count" in df.columns else "")
+                + "-log10(padj): %{marker.color:.2f}<extra></extra>"
             ),
         )
     )
