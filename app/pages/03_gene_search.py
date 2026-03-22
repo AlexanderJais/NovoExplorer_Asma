@@ -43,6 +43,7 @@ from app.components.shared import (  # noqa: E402
     check_data_path,
     create_expression_bar,
     table_height,
+    render_empty_state,
 )
 
 # ---------------------------------------------------------------------------
@@ -239,7 +240,7 @@ def main() -> None:
     gene_names: list[str] = st.session_state[_cache_key]
 
     if not gene_names:
-        st.warning("No gene names available. Ensure expression data is loaded.")
+        render_empty_state("No gene names available", "Ensure expression data is loaded.", "warning")
         return
 
     # ------------------------------------------------------------------
@@ -256,9 +257,10 @@ def main() -> None:
     )
 
     if not selected_gene:
-        st.info(
-            f"Choose from {len(gene_names):,} available genes to view expression "
-            "profiles and discover co-expressed neighbours."
+        render_empty_state(
+            f"Choose from {len(gene_names):,} available genes",
+            "Select a gene to view expression profiles and discover co-expressed neighbours.",
+            "gene",
         )
         _render_basket_panel(expression_df, samples_meta)
         return
@@ -306,7 +308,7 @@ def main() -> None:
         if fig_expr is not None:
             st.plotly_chart(fig_expr, use_container_width=True)
         else:
-            st.info(f"Gene '{selected_gene}' not found in expression matrix.")
+            render_empty_state(f"'{selected_gene}' not found in expression matrix", icon="gene")
 
     with right_col:
         st.subheader("Similar Genes")
@@ -359,11 +361,11 @@ def main() -> None:
                             add_to_basket(gene)
                             st.rerun()
         else:
-            st.info(
-                "No similar genes found. This can happen if: (1) the similarity matrix "
-                "was not computed during pipeline execution, or (2) this gene is not among "
-                "the top variable genes used for the similarity analysis. "
-                "You can still view expression profiles and DEG results for this gene."
+            render_empty_state(
+                "No similar genes found",
+                "The gene may not be among the top variable genes used for similarity analysis, "
+                "or the similarity matrix was not computed during pipeline execution.",
+                "search",
             )
 
     # ------------------------------------------------------------------

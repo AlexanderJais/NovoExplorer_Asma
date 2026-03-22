@@ -26,7 +26,7 @@ from pipeline.persistence import load_enrichment, load_signatures
 from plotting.enrichment import create_enrichment_dotplot
 from plotting.theme import apply_plotly_theme, get_nature_colorscale
 from app.components.download import download_csv_button, download_figure_buttons
-from app.components.shared import get_data_path, check_data_path, table_height
+from app.components.shared import get_data_path, check_data_path, table_height, render_empty_state
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -336,9 +336,10 @@ def main() -> None:
     signatures_data = _load_signatures(data_path)
 
     if not enrichment_data:
-        st.warning(
-            "No enrichment results found in the results file. "
-            "Run the enrichment analysis pipeline step first."
+        render_empty_state(
+            "No enrichment results found",
+            "Run the enrichment analysis pipeline step to generate pathway results.",
+            "search",
         )
         return
 
@@ -417,7 +418,7 @@ def main() -> None:
         )
 
         if combined_df.empty:
-            st.info(f"No significant enrichment results for **{comp}** at padj <= {padj_threshold}.")
+            render_empty_state(f"No significant results for {comp}", f"No pathways pass padj ≤ {padj_threshold}. Try relaxing the threshold.", "chart")
             continue
 
         with st.container(border=True):
@@ -525,59 +526,61 @@ def main() -> None:
         st.plotly_chart(fig_overlap, use_container_width=True, key="jaccard_heatmap")
         download_figure_buttons(fig_overlap, "signature_overlap_heatmap")
     else:
-        st.info("Not enough data to compute overlap heatmap.")
+        render_empty_state("Not enough data for overlap heatmap", "At least two comparisons with enrichment results are needed.", "chart")
 
     # --- Core and unique signatures ---
     col_core, col_unique = st.columns(2)
 
     with col_core:
-        st.subheader("Core Signatures")
-        st.caption("Gene sets enriched across multiple comparisons.")
+        with st.container(border=True):
+            st.subheader("Core Signatures")
+            st.caption("Gene sets enriched across multiple comparisons.")
 
-        # Try pre-computed core signatures, fall back to computing
-        core_df = None
-        if signatures_data is not None:
-            core_df = signatures_data.get("core")
+            # Try pre-computed core signatures, fall back to computing
+            core_df = None
+            if signatures_data is not None:
+                core_df = signatures_data.get("core")
 
-        if core_df is None or (isinstance(core_df, pd.DataFrame) and core_df.empty):
-            min_n = st.slider(
-                "Minimum comparisons",
-                min_value=2,
-                max_value=max(2, len(comparisons)),
-                value=2,
-                key="core_min_n",
-            )
-            core_df = _find_core_signatures_from_enrichment(
-                enrichment_data,
-                min_comparisons=min_n,
-                padj_max=padj_threshold,
-            )
+            if core_df is None or (isinstance(core_df, pd.DataFrame) and core_df.empty):
+                min_n = st.slider(
+                    "Minimum comparisons",
+                    min_value=2,
+                    max_value=max(2, len(comparisons)),
+                    value=2,
+                    key="core_min_n",
+                )
+                core_df = _find_core_signatures_from_enrichment(
+                    enrichment_data,
+                    min_comparisons=min_n,
+                    padj_max=padj_threshold,
+                )
 
-        if core_df is not None and not core_df.empty:
-            st.dataframe(core_df, use_container_width=True, hide_index=True)
-            download_csv_button(core_df, "core_signatures.csv", "Download core signatures")
-        else:
-            st.info("No core signatures found at the current thresholds.")
+            if core_df is not None and not core_df.empty:
+                st.dataframe(core_df, use_container_width=True, hide_index=True)
+                download_csv_button(core_df, "core_signatures.csv", "Download core signatures")
+            else:
+                render_empty_state("No core signatures found", "Try lowering the minimum comparisons or relaxing the p-value threshold.", "search")
 
     # --- Unique signatures ---
     with col_unique:
-        st.subheader("Unique Signatures")
-        st.caption("Gene sets enriched in exactly one comparison.")
+        with st.container(border=True):
+            st.subheader("Unique Signatures")
+            st.caption("Gene sets enriched in exactly one comparison.")
 
-        unique_df = None
-        if signatures_data is not None:
-            unique_df = signatures_data.get("unique")
+            unique_df = None
+            if signatures_data is not None:
+                unique_df = signatures_data.get("unique")
 
-        if unique_df is None or (isinstance(unique_df, pd.DataFrame) and unique_df.empty):
-            unique_df = _find_unique_signatures_from_enrichment(
-                enrichment_data, padj_max=padj_threshold,
-            )
+            if unique_df is None or (isinstance(unique_df, pd.DataFrame) and unique_df.empty):
+                unique_df = _find_unique_signatures_from_enrichment(
+                    enrichment_data, padj_max=padj_threshold,
+                )
 
-        if unique_df is not None and not unique_df.empty:
-            st.dataframe(unique_df, use_container_width=True, hide_index=True)
-            download_csv_button(unique_df, "unique_signatures.csv", "Download unique signatures")
-        else:
-            st.info("No unique signatures found at the current thresholds.")
+            if unique_df is not None and not unique_df.empty:
+                st.dataframe(unique_df, use_container_width=True, hide_index=True)
+                download_csv_button(unique_df, "unique_signatures.csv", "Download unique signatures")
+            else:
+                render_empty_state("No unique signatures found", "All significant pathways are shared across comparisons.", "search")
 
 
 # ---------------------------------------------------------------------------

@@ -500,3 +500,69 @@ hr {
 [data-testid="stAlert"] [data-testid="stAlertContentSuccess"] {
     font-weight: 500;
 }
+
+/* -----------------------------------------------------------------
+   20. Disabled button state
+   ----------------------------------------------------------------- */
+.stButton > button:disabled,
+.stDownloadButton > button:disabled {
+    background-color: #D0D0D0;
+    color: #8A8A8A;
+    cursor: not-allowed;
+    box-shadow: none;
+    transform: none;
+    opacity: 0.6;
+}
+
+/* -----------------------------------------------------------------
+   21. Focus ring for keyboard accessibility
+   ----------------------------------------------------------------- */
+.stButton > button:focus-visible,
+.stDownloadButton > button:focus-visible,
+[data-baseweb="select"]:focus-within,
+[data-baseweb="input"]:focus-within,
+.stSlider [role="slider"]:focus-visible {
+    outline: 2px solid #0072B2;
+    outline-offset: 2px;
+    box-shadow: 0 0 0 4px rgba(0, 114, 178, 0.15);
+}
+
+/* -----------------------------------------------------------------
+   22. Text input & text area refinement
+   ----------------------------------------------------------------- */
+.stTextInput > div > div > input,
+.stTextArea > div > div > textarea {
+    border: 1.5px solid #D4D4D4;
+    border-radius: 8px;
+    font-size: 0.88rem;
+    padding: 0.55rem 0.75rem;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.stTextInput > div > div > input:focus,
+.stTextArea > div > div > textarea:focus {
+    border-color: #0072B2;
+    box-shadow: 0 0 0 3px rgba(0, 114, 178, 0.1);
+}
+
+/* -----------------------------------------------------------------
+   23. Caption contrast improvement (WCAG AA)
+   ----------------------------------------------------------------- */
+[data-testid="stCaptionContainer"] {
+    color: #6A6A6A;
+}
+
+/* -----------------------------------------------------------------
+   24. Loading spinner accent
+   ----------------------------------------------------------------- */
+.stSpinner > div {
+    border-top-color: #0072B2 !important;
+}
+
+/* -----------------------------------------------------------------
+   25. Metric delta styling
+   ----------------------------------------------------------------- */
+[data-testid="stMetricDelta"] {
+    font-size: 0.75rem;
+    font-weight: 600;
+}

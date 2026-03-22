@@ -171,6 +171,8 @@ def main() -> None:
         f"Total DEGs counted at default thresholds (padj < 0.05, |log2FC| > 1)."
     )
 
+    st.divider()
+
     # ------------------------------------------------------------------
     # Tabbed sections
     # ------------------------------------------------------------------
@@ -326,7 +328,7 @@ def main() -> None:
                     height=table_height(len(summary_df)),
                 )
             else:
-                st.info("No DEG results contain the required columns.")
+                render_empty_state("No DEG results contain the required columns", "Expected columns: padj, log2fc.", "warning")
         else:
             render_empty_state("No DEG results available", "Run differential expression analysis first.", "search")
 

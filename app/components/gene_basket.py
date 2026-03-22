@@ -135,6 +135,7 @@ def render_basket() -> None:
                 mime="text/csv",
                 key="basket_export",
             )
+            st.divider()
             # Import
             import_text = st.text_area(
                 "Import genes (one per line or comma-separated)",
@@ -142,7 +143,7 @@ def render_basket() -> None:
                 height=80,
                 placeholder="TP53, BRCA1, MYC...",
             )
-            if st.button("Import", key="basket_import_btn"):
+            if st.button("Import genes", key="basket_import_btn"):
                 if import_text.strip():
                     n = import_to_basket(import_text)
                     st.toast(f"Added {n} gene(s) to basket")
