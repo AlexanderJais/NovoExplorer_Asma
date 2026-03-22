@@ -194,6 +194,10 @@ def _create_volcano_with_highlight(
 
 def main() -> None:
     st.title("Differential Expression Explorer")
+    st.caption(
+        "Visualize differential expression results with interactive volcano plots, "
+        "sortable gene tables, and per-gene expression profiles."
+    )
     init_basket()
 
     data_path = _get_data_path()
@@ -300,7 +304,9 @@ def main() -> None:
     # ------------------------------------------------------------------
     # DEG table: filterable by regulation, sortable by padj
     # ------------------------------------------------------------------
+    st.markdown("---")
     st.subheader("DEG Table")
+    st.caption("Genes meeting the significance thresholds, sorted by adjusted p-value.")
 
     # Build display table with required columns
     display_cols = []

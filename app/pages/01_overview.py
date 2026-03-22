@@ -141,6 +141,10 @@ def _get_sample_groups(
 
 def main() -> None:
     st.title("Overview Dashboard")
+    st.caption(
+        "High-level summary of your RNA-Seq experiment: sample counts, "
+        "dimensionality reduction, sample correlation, and differential expression overview."
+    )
 
     data_path = _get_data_path()
 
@@ -166,6 +170,7 @@ def main() -> None:
     # Top section: metric cards
     # ------------------------------------------------------------------
     st.header("Summary Metrics")
+    st.caption("Key statistics from the analysis pipeline.")
 
     n_samples = expression_df.shape[1] if expression_df is not None else 0
     n_genes = expression_df.shape[0] if expression_df is not None else 0
@@ -191,6 +196,7 @@ def main() -> None:
     # ------------------------------------------------------------------
     # Middle section: PCA / UMAP + Correlation heatmap
     # ------------------------------------------------------------------
+    st.markdown("---")
     st.header("Dimensionality Reduction & Sample Correlation")
     left_col, right_col = st.columns(2)
 
@@ -265,6 +271,7 @@ def main() -> None:
     # ------------------------------------------------------------------
     # Bottom section: top variable gene heatmap + DEG summary table
     # ------------------------------------------------------------------
+    st.markdown("---")
     st.header("Top Variable Genes & DEG Summary")
     bottom_left, bottom_right = st.columns(2)
 

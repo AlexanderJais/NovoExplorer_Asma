@@ -58,23 +58,23 @@ def get_basket():
 def render_basket():
     """Display the gene basket as a sidebar panel with remove and clear buttons."""
     init_basket()
-    basket = st.session_state[_BASKET_KEY]
+    basket_snapshot = list(st.session_state[_BASKET_KEY])
 
     with st.sidebar:
         st.subheader("Gene Basket")
 
-        if not basket:
-            st.caption("No genes in basket. Add genes from the analysis pages.")
+        if not basket_snapshot:
+            st.caption("No genes in basket yet. Add genes from the analysis pages.")
             return
 
-        st.caption(f"{len(basket)} gene(s) selected")
+        st.caption(f"{len(basket_snapshot)} gene(s) selected")
 
-        for gene in basket:
+        for idx, gene in enumerate(basket_snapshot):
             col_name, col_btn = st.columns([3, 1])
             with col_name:
-                st.write(gene)
+                st.markdown(f"**{gene}**")
             with col_btn:
-                if st.button("X", key=f"basket_remove_{gene}"):
+                if st.button("X", key=f"basket_remove_{idx}_{gene}"):
                     remove_from_basket(gene)
                     st.rerun()
 

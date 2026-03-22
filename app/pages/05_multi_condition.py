@@ -411,7 +411,7 @@ def _style_log2fc_cell(val, padj_val, padj_thresh, log2fc_thresh):
 
 def main() -> None:
     st.title("Multi-Condition Comparison")
-    st.markdown(
+    st.caption(
         "Compare differential expression results across multiple conditions. "
         "Identify shared and unique DEGs, assess fold-change concordance, "
         "and view a unified gene-level summary."
@@ -578,7 +578,7 @@ def main() -> None:
         # Use a styled HTML table for colored cells
         html_rows = []
         for _, row in summary_df.iterrows():
-            cells = [f'<td style="font-weight:600;">{row["gene"]}</td>']
+            cells = [f'<td style="font-weight:600; padding:0.5rem 0.75rem;">{row["gene"]}</td>']
             for lfc_col in log2fc_cols:
                 comp_name = lfc_col.replace("log2fc_", "")
                 padj_col = f"padj_{comp_name}"
@@ -586,14 +586,17 @@ def main() -> None:
                 padj_val = row.get(padj_col, np.nan)
                 style = _style_log2fc_cell(val, padj_val, padj_thresh, log2fc_thresh)
                 display_val = f"{val:.2f}" if pd.notna(val) else "---"
-                cells.append(f'<td style="{style} text-align:center; padding:4px 8px;">{display_val}</td>')
+                cells.append(
+                    f'<td style="{style} text-align:center; padding:0.5rem 0.75rem; '
+                    f'border-radius:4px;">{display_val}</td>'
+                )
             html_rows.append("<tr>" + "".join(cells) + "</tr>")
 
         comp_headers = [lfc_col.replace("log2fc_", "") for lfc_col in log2fc_cols]
-        header_cells = ['<th style="text-align:left; padding:6px 8px;">Gene</th>']
+        header_cells = ['<th style="text-align:left; padding:0.65rem 0.75rem;">Gene</th>']
         for ch in comp_headers:
             header_cells.append(
-                f'<th style="text-align:center; padding:6px 8px;">{ch}</th>'
+                f'<th style="text-align:center; padding:0.65rem 0.75rem;">{ch}</th>'
             )
 
         # Limit display to 200 rows in HTML, offer CSV for full data
@@ -601,12 +604,11 @@ def main() -> None:
         displayed_rows = html_rows[:max_display]
 
         html_table = f"""
-        <div style="max-height:500px; overflow-y:auto; border:1px solid #E5E5E5; border-radius:8px;">
-        <table style="width:100%; border-collapse:collapse; font-size:0.85rem;">
+        <div style="max-height:500px; overflow-y:auto; border:1px solid #E5E5E5;
+                    border-radius:10px; box-shadow:0 1px 3px rgba(0,0,0,0.03);">
+        <table>
         <thead>
-            <tr style="background-color:#F7F7F5; position:sticky; top:0; z-index:1;">
-                {"".join(header_cells)}
-            </tr>
+            <tr>{"".join(header_cells)}</tr>
         </thead>
         <tbody>
             {"".join(displayed_rows)}

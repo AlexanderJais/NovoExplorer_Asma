@@ -109,6 +109,9 @@ def _init_session_state() -> None:
             "Pass `--config path/to/config.yaml` after the Streamlit `--` separator."
         )
         st.stop()
+    except Exception as exc:
+        st.error(f"Failed to load configuration: **{type(exc).__name__}** -- {exc}")
+        st.stop()
 
     # Resolve the HDF5 results file
     output_dir = config.get("output_dir", "results")
@@ -132,20 +135,30 @@ with st.sidebar:
 
     st.markdown("---")
 
-    # Navigation is handled by st.navigation below; the sidebar also shows
-    # config metadata for quick reference.
+    # Project info card
     cfg = st.session_state.get("config", {})
     if cfg:
         st.markdown("### Project")
         project_name = cfg.get("project_name", cfg.get("data_dir", "Unknown"))
-        st.markdown(f"**{project_name}**")
         organism = cfg.get("organism", "human").capitalize()
-        st.markdown(f"Organism: {organism}")
+        st.markdown(
+            f"""
+            <div style="background:#FFFFFF; border:1px solid #E0E0DE; border-radius:8px;
+                        padding:0.75rem 1rem; margin-bottom:0.75rem;">
+                <div style="font-weight:600; font-size:0.92rem; color:#2D2D2D;
+                            margin-bottom:0.3rem;">{project_name}</div>
+                <div style="font-size:0.8rem; color:#7A7A7A;">
+                    Organism: {organism}
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
     st.markdown("---")
 
-    # Page links for quick reference
-    st.markdown("### Pages")
+    # Page navigation
+    st.markdown("### Navigate")
     st.page_link(str(_PAGE_DIR / "01_overview.py"), label="Overview", icon="\U0001F4CA")
     st.page_link(str(_PAGE_DIR / "02_diffexp.py"), label="Differential Expression", icon="\U0001F30B")
     st.page_link(str(_PAGE_DIR / "03_gene_search.py"), label="Gene Search", icon="\U0001F9EC")
@@ -154,12 +167,12 @@ with st.sidebar:
 
     st.markdown("---")
 
-    # About section pinned to bottom
+    # Version footer
     st.markdown(
         f"""
-        <div style="position:fixed; bottom:1rem; width:inherit; font-size:0.78rem; color:#8C8C8C;">
+        <div style="font-size:0.75rem; color:#9A9A9A; text-align:center; padding:0.5rem 0;">
             <strong>NovoView</strong> v{_VERSION}<br>
-            RNA-Seq analysis &amp; visualisation
+            RNA-Seq Analysis Platform
         </div>
         """,
         unsafe_allow_html=True,

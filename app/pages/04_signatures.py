@@ -325,7 +325,7 @@ def _find_unique_signatures_from_enrichment(
 
 def main() -> None:
     st.title("Signatures & Pathways")
-    st.markdown(
+    st.caption(
         "Browse enrichment analysis results across comparisons and databases. "
         "Explore cross-comparison overlap to identify core and unique gene-set signatures."
     )

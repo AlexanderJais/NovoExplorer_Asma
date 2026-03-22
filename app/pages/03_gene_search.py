@@ -30,6 +30,7 @@ from pipeline.persistence import (  # noqa: E402
 )
 from plotting.theme import (  # noqa: E402
     WONG_PALETTE,
+    DIVERGING_CMAP,
     apply_plotly_theme,
 )
 from app.components.gene_basket import (  # noqa: E402
@@ -242,6 +243,10 @@ def _get_gene_info(
 
 def main() -> None:
     st.title("Gene Search & Similarity Finder")
+    st.caption(
+        "Search for any gene to view its expression profile, find co-expressed genes "
+        "via cosine similarity, and build a gene basket for comparative analysis."
+    )
     init_basket()
 
     data_path = _get_data_path()
@@ -443,7 +448,7 @@ def _render_basket_panel(
                     z,
                     labels=dict(x="Sample", y="Gene", color="Z-score"),
                     aspect="auto",
-                    color_continuous_scale="RdBu_r",
+                    color_continuous_scale=DIVERGING_CMAP,
                     title="Basket Genes (z-score)",
                 )
                 apply_plotly_theme(fig)

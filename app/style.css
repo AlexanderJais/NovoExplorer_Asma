@@ -25,8 +25,8 @@ header {visibility: hidden;}
    3. Sidebar styling
    ----------------------------------------------------------------- */
 [data-testid="stSidebar"] {
-    background-color: #F7F7F5;
-    border-right: 1px solid #E5E5E5;
+    background: linear-gradient(180deg, #F9F9F7 0%, #F3F3F0 100%);
+    border-right: 1px solid #E0E0DE;
     padding-top: 1.25rem;
 }
 
@@ -34,21 +34,24 @@ header {visibility: hidden;}
     padding-top: 0.5rem;
 }
 
+/* Sidebar brand header */
 [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] h1 {
     color: #0072B2;
-    font-size: 1.4rem;
-    font-weight: 700;
-    letter-spacing: -0.02em;
-    padding-bottom: 0.25rem;
-    border-bottom: 2px solid #0072B2;
-    margin-bottom: 1rem;
+    font-size: 1.5rem;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    padding-bottom: 0.35rem;
+    border-bottom: 2.5px solid #0072B2;
+    margin-bottom: 0.75rem;
 }
 
 [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] h2,
 [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] h3 {
     color: #2D2D2D;
-    font-size: 0.95rem;
+    font-size: 0.9rem;
     font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
     margin-top: 1.2rem;
     margin-bottom: 0.5rem;
 }
@@ -65,22 +68,32 @@ header {visibility: hidden;}
 [data-testid="stSidebar"] a[data-testid="stPageLink-NavLink"] {
     font-size: 0.88rem;
     color: #2D2D2D;
-    padding: 0.35rem 0.6rem;
+    padding: 0.4rem 0.75rem;
     border-radius: 6px;
     margin-bottom: 0.15rem;
-    transition: background-color 0.12s ease;
+    transition: all 0.15s ease;
+    border-left: 3px solid transparent;
 }
 
 [data-testid="stSidebar"] a[data-testid="stPageLink-NavLink"]:hover {
-    background-color: rgba(0, 114, 178, 0.08);
+    background-color: rgba(0, 114, 178, 0.06);
     color: #0072B2;
     text-decoration: none;
+    border-left: 3px solid rgba(0, 114, 178, 0.3);
 }
 
 [data-testid="stSidebar"] a[data-testid="stPageLink-NavLink"][aria-current="page"] {
-    background-color: rgba(0, 114, 178, 0.12);
+    background-color: rgba(0, 114, 178, 0.1);
     color: #0072B2;
     font-weight: 600;
+    border-left: 3px solid #0072B2;
+}
+
+/* Sidebar dividers */
+[data-testid="stSidebar"] hr {
+    border: none;
+    border-top: 1px solid #E0E0DE;
+    margin: 1rem 0;
 }
 
 /* -----------------------------------------------------------------
@@ -89,40 +102,46 @@ header {visibility: hidden;}
 [data-testid="stExpander"],
 [data-testid="stVerticalBlock"] > div[data-testid="stHorizontalBlock"],
 div[data-testid="column"] > div {
-    border-radius: 8px;
+    border-radius: 10px;
 }
 
-/* Explicit card class for st.container with border=True */
+/* Bordered containers (st.container(border=True)) */
 [data-testid="stVerticalBlockBorderWrapper"] {
     border: 1px solid #E5E5E5;
-    border-radius: 8px;
-    padding: 1.25rem 1.5rem;
+    border-radius: 10px;
+    padding: 1.5rem 1.75rem;
     background-color: #FFFFFF;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04), 0 0 1px rgba(0, 0, 0, 0.06);
     margin-bottom: 1.25rem;
 }
 
 /* Metric cards */
 [data-testid="stMetric"] {
     background-color: #FFFFFF;
-    border: 1px solid #E5E5E5;
-    border-radius: 8px;
-    padding: 0.75rem 1rem;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+    border: 1px solid #E8E8E8;
+    border-radius: 10px;
+    padding: 1rem 1.25rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+    transition: box-shadow 0.15s ease;
+}
+
+[data-testid="stMetric"]:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
 [data-testid="stMetricLabel"] {
-    font-size: 0.8rem;
-    font-weight: 500;
-    color: #6B6B6B;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #7A7A7A;
     text-transform: uppercase;
-    letter-spacing: 0.03em;
+    letter-spacing: 0.04em;
 }
 
 [data-testid="stMetricValue"] {
-    font-size: 1.6rem;
+    font-size: 1.7rem;
     font-weight: 700;
     color: #0072B2;
+    letter-spacing: -0.02em;
 }
 
 /* -----------------------------------------------------------------
@@ -140,8 +159,11 @@ div[data-testid="column"] > div {
     background-color: #F7F7F5;
     color: #2D2D2D;
     font-weight: 600;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
     text-align: left;
-    padding: 0.6rem 0.75rem;
+    padding: 0.65rem 0.75rem;
     border-bottom: 2px solid #D4D4D4;
     position: sticky;
     top: 0;
@@ -151,7 +173,7 @@ div[data-testid="column"] > div {
 [data-testid="stDataFrame"] tbody td,
 [data-testid="stTable"] tbody td {
     padding: 0.5rem 0.75rem;
-    border-bottom: 1px solid #EEEEEE;
+    border-bottom: 1px solid #F0F0F0;
 }
 
 [data-testid="stDataFrame"] tbody tr:nth-child(even),
@@ -161,7 +183,7 @@ div[data-testid="column"] > div {
 
 [data-testid="stDataFrame"] tbody tr:hover,
 [data-testid="stTable"] tbody tr:hover {
-    background-color: #F0F7FB;
+    background-color: #EDF5FA;
 }
 
 /* -----------------------------------------------------------------
@@ -173,23 +195,25 @@ div[data-testid="column"] > div {
     color: #FFFFFF;
     border: none;
     border-radius: 6px;
-    padding: 0.45rem 1.1rem;
+    padding: 0.5rem 1.2rem;
     font-weight: 600;
-    font-size: 0.85rem;
+    font-size: 0.84rem;
     letter-spacing: 0.01em;
-    transition: background-color 0.15s ease, box-shadow 0.15s ease;
+    transition: all 0.15s ease;
 }
 
 .stButton > button:hover,
 .stDownloadButton > button:hover {
     background-color: #005A8C;
-    box-shadow: 0 2px 6px rgba(0, 114, 178, 0.25);
+    box-shadow: 0 2px 8px rgba(0, 114, 178, 0.25);
     color: #FFFFFF;
+    transform: translateY(-1px);
 }
 
 .stButton > button:active,
 .stDownloadButton > button:active {
     background-color: #004466;
+    transform: translateY(0);
 }
 
 /* Download button icon spacing */
@@ -197,7 +221,7 @@ div[data-testid="column"] > div {
     margin-right: 0.3rem;
 }
 
-/* Secondary/outline button variant (use with custom class) */
+/* Secondary/outline button variant */
 .stButton > button[kind="secondary"] {
     background-color: transparent;
     color: #0072B2;
@@ -207,29 +231,35 @@ div[data-testid="column"] > div {
 .stButton > button[kind="secondary"]:hover {
     background-color: rgba(0, 114, 178, 0.06);
     box-shadow: none;
+    transform: none;
 }
 
 /* -----------------------------------------------------------------
    7. Tabs
    ----------------------------------------------------------------- */
 .stTabs [data-baseweb="tab-list"] {
-    gap: 0.25rem;
+    gap: 0;
     border-bottom: 2px solid #E5E5E5;
 }
 
 .stTabs [data-baseweb="tab"] {
-    padding: 0.6rem 1.1rem;
+    padding: 0.65rem 1.25rem;
     font-weight: 500;
     font-size: 0.9rem;
     color: #6B6B6B;
     border-radius: 6px 6px 0 0;
     border: none;
+    transition: color 0.15s ease;
+}
+
+.stTabs [data-baseweb="tab"]:hover {
+    color: #0072B2;
 }
 
 .stTabs [aria-selected="true"] {
     color: #0072B2;
     font-weight: 600;
-    border-bottom: 2px solid #0072B2;
+    border-bottom: 2.5px solid #0072B2;
     background-color: transparent;
 }
 
@@ -238,14 +268,20 @@ div[data-testid="column"] > div {
    ----------------------------------------------------------------- */
 [data-testid="stExpander"] {
     border: 1px solid #E5E5E5;
-    border-radius: 8px;
+    border-radius: 10px;
     margin-bottom: 0.75rem;
+    overflow: hidden;
 }
 
 [data-testid="stExpander"] summary {
     font-weight: 600;
     font-size: 0.9rem;
     color: #2D2D2D;
+    padding: 0.75rem 1rem;
+}
+
+[data-testid="stExpander"] summary:hover {
+    background-color: rgba(0, 114, 178, 0.03);
 }
 
 /* -----------------------------------------------------------------
@@ -253,30 +289,35 @@ div[data-testid="column"] > div {
    ----------------------------------------------------------------- */
 .block-container {
     padding-top: 2rem;
-    padding-bottom: 2.5rem;
-    max-width: 1200px;
+    padding-bottom: 3rem;
+    max-width: 1280px;
 }
 
 [data-testid="stVerticalBlock"] > div {
     margin-bottom: 0.5rem;
 }
 
-/* Section headers */
+/* Page titles */
 [data-testid="stMarkdownContainer"] h1 {
-    font-size: 1.6rem;
+    font-size: 1.75rem;
     font-weight: 700;
-    color: #2D2D2D;
-    margin-bottom: 0.5rem;
+    color: #1A1A1A;
+    margin-bottom: 0.25rem;
+    letter-spacing: -0.02em;
 }
 
+/* Section headers */
 [data-testid="stMarkdownContainer"] h2 {
-    font-size: 1.25rem;
+    font-size: 1.3rem;
     font-weight: 600;
     color: #2D2D2D;
-    margin-top: 1.5rem;
+    margin-top: 2rem;
     margin-bottom: 0.75rem;
+    padding-bottom: 0.4rem;
+    border-bottom: 1px solid #EEEEEE;
 }
 
+/* Subsection headers */
 [data-testid="stMarkdownContainer"] h3 {
     font-size: 1.05rem;
     font-weight: 600;
@@ -284,18 +325,27 @@ div[data-testid="column"] > div {
     margin-top: 1.25rem;
 }
 
+/* H4 headers (used within containers) */
+[data-testid="stMarkdownContainer"] h4 {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #4A4A4A;
+    margin-top: 1rem;
+    margin-bottom: 0.5rem;
+}
+
 /* Section dividers */
 hr {
     border: none;
     border-top: 1px solid #E5E5E5;
-    margin: 2rem 0;
+    margin: 2.5rem 0;
 }
 
 /* Caption text */
 [data-testid="stCaptionContainer"] {
     font-size: 0.82rem;
     color: #7A7A7A;
-    line-height: 1.45;
+    line-height: 1.5;
 }
 
 /* -----------------------------------------------------------------
@@ -320,19 +370,26 @@ hr {
    11. Plotly chart containers
    ----------------------------------------------------------------- */
 [data-testid="stPlotlyChart"] {
-    border: 1px solid #E5E5E5;
-    border-radius: 8px;
+    border: 1px solid #EBEBEB;
+    border-radius: 10px;
     padding: 0.5rem;
     background-color: #FFFFFF;
     margin-bottom: 1rem;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
 }
 
 /* -----------------------------------------------------------------
-   12. Info / warning / error boxes
+   12. Info / warning / error / success boxes
    ----------------------------------------------------------------- */
 [data-testid="stAlert"] {
     border-radius: 8px;
     font-size: 0.85rem;
+}
+
+/* Info boxes */
+div[data-testid="stAlert"][data-baseweb="notification"]:has([data-testid="stAlertContentInfo"]) {
+    background-color: #EDF5FA;
+    border-left: 4px solid #0072B2;
 }
 
 /* -----------------------------------------------------------------
@@ -343,15 +400,23 @@ hr {
     font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
     font-size: 0.85rem;
     color: #2D2D2D;
+    width: 100%;
 }
 
 .block-container table thead th {
     background-color: #F7F7F5;
     font-weight: 600;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
     border-bottom: 2px solid #D4D4D4;
     position: sticky;
     top: 0;
     z-index: 1;
+}
+
+.block-container table tbody td {
+    border-bottom: 1px solid #F0F0F0;
 }
 
 .block-container table tbody tr:nth-child(even) {
@@ -359,7 +424,7 @@ hr {
 }
 
 .block-container table tbody tr:hover {
-    background-color: #F0F7FB;
+    background-color: #EDF5FA;
 }
 
 /* -----------------------------------------------------------------
@@ -390,4 +455,33 @@ hr {
 
 ::-webkit-scrollbar-thumb:hover {
     background: #AAAAAA;
+}
+
+/* -----------------------------------------------------------------
+   16. Radio buttons (horizontal)
+   ----------------------------------------------------------------- */
+[data-testid="stRadio"] > div {
+    gap: 0.25rem;
+}
+
+[data-testid="stRadio"] label {
+    font-size: 0.85rem;
+    padding: 0.35rem 0.75rem;
+    border-radius: 6px;
+    transition: background-color 0.12s ease;
+}
+
+/* -----------------------------------------------------------------
+   17. Toast / notification styling
+   ----------------------------------------------------------------- */
+[data-testid="stToast"] {
+    border-radius: 8px;
+    font-size: 0.85rem;
+}
+
+/* -----------------------------------------------------------------
+   18. Empty state placeholders
+   ----------------------------------------------------------------- */
+.stInfo {
+    border-radius: 8px;
 }
