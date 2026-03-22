@@ -85,7 +85,14 @@ def apply_matplotlib_theme() -> None:
 
 
 def get_plotly_template() -> go.layout.Template:
-    """Return a Plotly template that mirrors the Nature journal style."""
+    """Return a Plotly template that mirrors the Nature journal style.
+
+    Returns
+    -------
+    go.layout.Template
+        Template with white background, thin axis lines, Wong colour
+        palette, and no grid.
+    """
     _charcoal = "#333333"
 
     template = go.layout.Template()
@@ -156,7 +163,7 @@ def apply_plotly_theme(fig: go.Figure) -> go.Figure:
 
 
 def get_nature_colorscale(palette_type: str = "diverging") -> str:
-    """Return an appropriate Plotly colorscale name.
+    """Return a colorscale name for the given palette type.
 
     Parameters
     ----------
@@ -166,7 +173,15 @@ def get_nature_colorscale(palette_type: str = "diverging") -> str:
     Returns
     -------
     str
-        A Plotly-compatible colorscale name.
+        Colorscale name.  The ``"diverging"`` value (``"RdBu_r"``) is a
+        **matplotlib / seaborn** name; for Plotly use :data:`PLOTLY_DIVERGING_CMAP`
+        (``"RdBu"``) with ``reversescale=True``.  The ``"sequential"`` value
+        (``"viridis"``) works in both backends.
+
+    Raises
+    ------
+    ValueError
+        If *palette_type* is not recognised.
     """
     if palette_type == "diverging":
         return DIVERGING_CMAP

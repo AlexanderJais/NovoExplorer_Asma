@@ -2,6 +2,11 @@
 
 Centralises repeated patterns: data path resolution, sample group
 extraction, expression bar charts, and numeric formatting.
+
+Public API
+----------
+get_data_path, check_data_path, get_sample_groups,
+create_expression_bar, fmt_count, fmt_pvalue, fmt_fc, table_height.
 """
 
 from __future__ import annotations
@@ -32,12 +37,31 @@ _DEFAULT_DATA_PATH = str(_NOVOVIEW_ROOT / "results" / "novoview_results.h5")
 
 
 def get_data_path() -> str:
-    """Return the HDF5 results path from session state."""
+    """Return the HDF5 results path stored in session state.
+
+    Returns
+    -------
+    str
+        Absolute path to the ``novoview_results.h5`` file.  Falls back to
+        a default under ``novoview/results/`` if session state is empty.
+    """
     return st.session_state.get("results_path", _DEFAULT_DATA_PATH)
 
 
 def check_data_path(data_path: str) -> bool:
-    """Show an error and return False if *data_path* does not exist."""
+    """Verify that *data_path* exists; display an error if not.
+
+    Parameters
+    ----------
+    data_path : str
+        Path to the HDF5 results file.
+
+    Returns
+    -------
+    bool
+        ``True`` if the file exists; ``False`` (and ``st.error`` shown)
+        otherwise.
+    """
     if not Path(data_path).exists():
         st.error(
             f"Results file not found: `{data_path}`. "
@@ -56,7 +80,26 @@ def get_sample_groups(
     samples_meta: pd.DataFrame | None,
     sample_names: list[str],
 ) -> pd.Series | None:
-    """Extract a condition Series aligned to *sample_names* from metadata."""
+    """Extract a per-sample condition label aligned to *sample_names*.
+
+    Looks for a column named ``condition``, ``group``, or ``sample_group``
+    (in that order) in the metadata table and returns a Series indexed by
+    sample name.
+
+    Parameters
+    ----------
+    samples_meta : pd.DataFrame or None
+        Metadata table, optionally containing a ``sample_id`` column that
+        will be used as the index.
+    sample_names : list[str]
+        Sample names to align the output Series to.
+
+    Returns
+    -------
+    pd.Series or None
+        Condition labels indexed by sample name, or ``None`` if metadata
+        is unavailable or no recognised condition column is found.
+    """
     if samples_meta is None or samples_meta.empty:
         return None
 
@@ -83,7 +126,22 @@ def create_expression_bar(
     expression_df: pd.DataFrame,
     samples_meta: pd.DataFrame | None,
 ) -> go.Figure | None:
-    """Bar chart of a single gene's expression across samples/conditions."""
+    """Create a bar chart of one gene's expression across samples.
+
+    Parameters
+    ----------
+    gene_name : str
+        Gene identifier; must be present in *expression_df*.index.
+    expression_df : pd.DataFrame
+        Expression matrix (genes x samples).
+    samples_meta : pd.DataFrame or None
+        Optional sample metadata used to colour bars by condition.
+
+    Returns
+    -------
+    go.Figure or None
+        Plotly bar chart, or ``None`` if *gene_name* is not found.
+    """
     if expression_df is None or gene_name not in expression_df.index:
         return None
 
@@ -126,19 +184,19 @@ def create_expression_bar(
 
 
 def fmt_count(n: int | float) -> str:
-    """Format an integer with thousands separator."""
+    """Format *n* as an integer with thousands separators (e.g. ``"1,234"``)."""
     return f"{int(n):,}"
 
 
 def fmt_pvalue(p: float) -> str:
-    """Format a p-value in scientific notation."""
+    """Format a p-value in scientific notation (e.g. ``"1.23e-04"``)."""
     if pd.isna(p):
         return "---"
     return f"{p:.2e}"
 
 
 def fmt_fc(fc: float) -> str:
-    """Format a log2 fold-change value."""
+    """Format a log2 fold-change to three decimal places."""
     if pd.isna(fc):
         return "---"
     return f"{fc:.3f}"
@@ -150,5 +208,18 @@ def fmt_fc(fc: float) -> str:
 
 
 def table_height(n_rows: int, max_height: int = 400) -> int:
-    """Calculate a sensible table height based on row count."""
+    """Calculate a pixel height for ``st.dataframe`` based on row count.
+
+    Parameters
+    ----------
+    n_rows : int
+        Number of rows to display.
+    max_height : int, optional
+        Upper bound in pixels (default 400).
+
+    Returns
+    -------
+    int
+        Height in pixels, capped at *max_height*.
+    """
     return min(max_height, 35 * n_rows + 38)

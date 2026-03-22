@@ -1,4 +1,9 @@
-"""PCA and UMAP scatter plot visualizations."""
+"""PCA and UMAP scatter plot visualizations.
+
+Provides ``create_pca_scatter`` (with 95 % confidence ellipses and
+variance-explained axis labels) and ``create_umap_scatter`` for
+interactive Plotly scatter plots coloured by sample group.
+"""
 
 from __future__ import annotations
 

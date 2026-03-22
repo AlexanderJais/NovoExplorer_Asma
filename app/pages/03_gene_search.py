@@ -443,7 +443,4 @@ def _render_basket_panel(
 # Entry point
 # ---------------------------------------------------------------------------
 
-if __name__ == "__page__" or __name__ == "__main__":
-    main()
-else:
-    main()
+main()

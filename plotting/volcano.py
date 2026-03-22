@@ -1,4 +1,10 @@
-"""Volcano plot visualizations for differential expression results."""
+"""Volcano plot visualizations for differential expression results.
+
+Provides ``create_volcano_plotly`` (interactive Plotly) and
+``create_volcano_matplotlib`` (static, publication-quality) renderers.
+Both accept a DEG DataFrame with ``log2fc`` and ``padj`` columns and
+produce annotated volcano plots with configurable significance thresholds.
+"""
 
 from __future__ import annotations
 
@@ -67,12 +73,17 @@ def create_volcano_plotly(
         Absolute log2 fold-change cutoff.
     title : str
         Plot title.
-    top_n_labels : int
-        Number of top significant genes to annotate.
+    top_n_labels : int, optional
+        Number of top significant genes to annotate (default 10).
 
     Returns
     -------
     plotly.graph_objects.Figure
+
+    Raises
+    ------
+    ValueError
+        If *deg_df* is missing required ``log2fc`` or ``padj`` columns.
     """
     # Validate required columns
     required = {"log2fc", "padj"}
@@ -203,12 +214,19 @@ def create_volcano_matplotlib(
         Absolute log2 fold-change cutoff.
     title : str
         Plot title.
-    top_n_labels : int
-        Number of top significant genes to annotate.
+    top_n_labels : int, optional
+        Number of top significant genes to annotate (default 10).
 
     Returns
     -------
     tuple[matplotlib.figure.Figure, matplotlib.axes.Axes]
+
+    Raises
+    ------
+    ValueError
+        If *deg_df* is missing required ``log2fc`` or ``padj`` columns.
+    ImportError
+        If the optional ``adjustText`` package is not installed.
     """
     from adjustText import adjust_text
 

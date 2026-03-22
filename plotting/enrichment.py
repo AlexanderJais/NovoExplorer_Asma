@@ -1,4 +1,10 @@
-"""Enrichment analysis visualizations (dot plots and bar charts)."""
+"""Enrichment analysis visualizations (dot plots and bar charts).
+
+Provides ``create_enrichment_dotplot`` (dot size by gene count, colour
+by significance) and ``create_enrichment_barplot`` (horizontal bars
+coloured by category).  Both accept enrichment DataFrames with
+``term_name`` and ``padj`` columns.
+"""
 
 from __future__ import annotations
 
@@ -42,8 +48,9 @@ def create_enrichment_dotplot(
     Parameters
     ----------
     enrichment_df : pd.DataFrame
-        Must contain columns ``term_name``, ``padj``, and either
-        ``gene_ratio`` or ``gene_count``.
+        Should contain columns ``term_name`` and ``padj``.  Optionally
+        ``gene_ratio`` (used for x-axis) and/or ``gene_count`` (used
+        for dot size).  Falls back gracefully when columns are absent.
     title : str
         Plot title.
     max_terms : int

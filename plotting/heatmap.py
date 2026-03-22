@@ -1,4 +1,10 @@
-"""Clustered heatmap visualizations for gene expression data."""
+"""Clustered heatmap visualizations for gene expression data.
+
+Provides ``create_clustered_heatmap`` (seaborn/matplotlib clustermap) and
+``create_heatmap_plotly`` (interactive Plotly heatmap).  Both z-score
+normalise rows and apply hierarchical clustering (Ward linkage on
+Euclidean distances) to order genes and samples.
+"""
 
 from __future__ import annotations
 

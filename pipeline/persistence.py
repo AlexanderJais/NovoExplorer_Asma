@@ -476,11 +476,16 @@ def load_enrichment(
 def load_similarity(output_path: str | Path) -> Optional[Dict[str, Any]]:
     """Load similarity matrix and cluster results.
 
+    Parameters
+    ----------
+    output_path : str or Path
+        Path to the HDF5 results file.
+
     Returns
     -------
     dict or None
         Keys: ``'cosine_matrix'``, ``'gene_clusters'``,
-        ``'signature_vectors'``.
+        ``'signature_vectors'``.  ``None`` if no similarity data is stored.
     """
     output_path = Path(output_path)
     try:
@@ -499,11 +504,17 @@ def load_similarity(output_path: str | Path) -> Optional[Dict[str, Any]]:
 def load_qc(output_path: str | Path) -> Optional[Dict[str, Any]]:
     """Load QC results.
 
+    Parameters
+    ----------
+    output_path : str or Path
+        Path to the HDF5 results file.
+
     Returns
     -------
     dict or None
         Keys: ``'library_sizes'``, ``'detection_rates'``,
-        ``'mito_fractions'``, ``'correlation'``.
+        ``'mito_fractions'``, ``'correlation'``.  ``None`` if no QC data
+        is stored.
     """
     output_path = Path(output_path)
     try:
@@ -523,10 +534,16 @@ def load_qc(output_path: str | Path) -> Optional[Dict[str, Any]]:
 def load_signatures(output_path: str | Path) -> Optional[Dict[str, Any]]:
     """Load signature analysis results.
 
+    Parameters
+    ----------
+    output_path : str or Path
+        Path to the HDF5 results file.
+
     Returns
     -------
     dict or None
-        Keys: ``'overlap_matrix'``, ``'core'``, ``'unique'``.
+        Keys: ``'overlap_matrix'``, ``'core'``, ``'unique'``.  ``None``
+        if no signature data is stored.
     """
     output_path = Path(output_path)
     try:

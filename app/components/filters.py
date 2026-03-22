@@ -1,4 +1,8 @@
-"""Shared filter widgets for NovoView."""
+"""Reusable Streamlit filter widgets for NovoView pages.
+
+Provides ``comparison_selector``, ``threshold_sliders``,
+``database_selector``, and ``gene_search_box``.
+"""
 
 import streamlit as st
 
