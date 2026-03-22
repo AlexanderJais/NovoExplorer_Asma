@@ -437,7 +437,7 @@ def main() -> None:
     # ==================================================================
     # Section 1: DEG Overlap
     # ==================================================================
-    st.header("1. DEG Overlap")
+    st.header("DEG Overlap")
     st.caption(
         "Intersection of significant DEGs across comparisons. "
         "Each bar represents a unique combination of comparisons and shows "
@@ -482,7 +482,7 @@ def main() -> None:
     # ==================================================================
     # Section 2: Fold-Change Concordance
     # ==================================================================
-    st.header("2. Fold-Change Concordance")
+    st.header("Fold-Change Concordance")
     st.caption(
         "Compare log2 fold-changes between two comparisons. "
         "Concordant genes are colored by direction (vermilion = up, blue = down); "
@@ -539,7 +539,7 @@ def main() -> None:
     # ==================================================================
     # Section 3: Summary Table
     # ==================================================================
-    st.header("3. Gene-Level Summary Table")
+    st.header("Gene-Level Summary")
     st.caption(
         "Log2 fold-change per comparison for every gene significant in at least "
         "one comparison. Cells are colored: vermilion = significantly up, "

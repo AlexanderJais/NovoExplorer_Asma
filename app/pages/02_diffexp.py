@@ -219,8 +219,11 @@ def main() -> None:
         )
         return
 
-    # ---- Volcano plot (large) ----
+    # ---- Volcano plot ----
     st.subheader(f"Volcano Plot: {selected_comparison}")
+    st.caption(
+        f"padj threshold: {padj_thresh}, |log2FC| threshold: {log2fc_thresh}"
+    )
     fig_volcano = _create_volcano_with_highlight(
         deg_df,
         padj_threshold=padj_thresh,

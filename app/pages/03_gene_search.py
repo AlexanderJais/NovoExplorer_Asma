@@ -249,8 +249,10 @@ def main() -> None:
     )
 
     if not selected_gene:
-        st.info("Select a gene above to view its expression profile and find similar genes.")
-        # Still render basket at bottom
+        st.info(
+            f"Choose from {len(gene_names):,} available genes to view expression "
+            "profiles and discover co-expressed neighbours."
+        )
         _render_basket_panel(expression_df, samples_meta)
         return
 

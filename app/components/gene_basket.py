@@ -62,20 +62,23 @@ def render_basket():
     basket_snapshot = list(st.session_state[_BASKET_KEY])
 
     with st.sidebar:
-        st.subheader("Gene Basket")
+        st.markdown("### Gene Basket")
 
         if not basket_snapshot:
-            st.caption("No genes in basket yet. Add genes from the analysis pages.")
+            st.caption("Add genes from any analysis page.")
             return
 
-        st.caption(f"{len(basket_snapshot)} gene(s) selected")
+        st.caption(f"{len(basket_snapshot)} gene(s)")
 
         for idx, gene in enumerate(basket_snapshot):
-            col_name, col_btn = st.columns([3, 1])
+            col_name, col_btn = st.columns([4, 1])
             with col_name:
-                st.markdown(f"**{gene}**")
+                st.markdown(
+                    f"<span style='font-size:0.85rem; font-weight:500;'>{gene}</span>",
+                    unsafe_allow_html=True,
+                )
             with col_btn:
-                if st.button("X", key=f"basket_remove_{idx}_{gene}"):
+                if st.button("x", key=f"basket_remove_{idx}_{gene}"):
                     remove_from_basket(gene)
                     st.rerun()
 

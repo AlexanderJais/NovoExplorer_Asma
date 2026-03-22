@@ -139,8 +139,7 @@ def main() -> None:
     # ------------------------------------------------------------------
     # Top section: metric cards
     # ------------------------------------------------------------------
-    st.header("Summary Metrics")
-    st.caption("Key statistics from the analysis pipeline.")
+    st.header("Summary")
 
     n_samples = expression_df.shape[1] if expression_df is not None else 0
     n_genes = expression_df.shape[0] if expression_df is not None else 0

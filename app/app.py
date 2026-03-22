@@ -131,24 +131,25 @@ _init_session_state()
 
 with st.sidebar:
     st.markdown("# NovoView")
-    st.caption("RNA-Seq Analysis Dashboard")
-
-    st.markdown("---")
+    st.caption("RNA-Seq Analysis Platform")
 
     # Project info card
     cfg = st.session_state.get("config", {})
     if cfg:
-        st.markdown("### Project")
         project_name = cfg.get("project_name", cfg.get("data_dir", "Unknown"))
         organism = cfg.get("organism", "human").capitalize()
         st.markdown(
             f"""
-            <div style="background:#FFFFFF; border:1px solid #E0E0DE; border-radius:8px;
-                        padding:0.75rem 1rem; margin-bottom:0.75rem;">
+            <div style="background:linear-gradient(135deg, #FFFFFF 0%, #F8FAFE 100%);
+                        border:1px solid #DDE5EB; border-radius:10px;
+                        padding:0.85rem 1rem; margin:0.5rem 0 0.75rem 0;">
+                <div style="font-size:0.7rem; font-weight:700; color:#8A8A8A;
+                            text-transform:uppercase; letter-spacing:0.06em;
+                            margin-bottom:0.35rem;">Project</div>
                 <div style="font-weight:600; font-size:0.92rem; color:#2D2D2D;
-                            margin-bottom:0.3rem;">{project_name}</div>
-                <div style="font-size:0.8rem; color:#7A7A7A;">
-                    Organism: {organism}
+                            margin-bottom:0.25rem;">{project_name}</div>
+                <div style="font-size:0.78rem; color:#7A7A7A;">
+                    {organism}
                 </div>
             </div>
             """,
@@ -170,9 +171,8 @@ with st.sidebar:
     # Version footer
     st.markdown(
         f"""
-        <div style="font-size:0.75rem; color:#9A9A9A; text-align:center; padding:0.5rem 0;">
-            <strong>NovoView</strong> v{_VERSION}<br>
-            RNA-Seq Analysis Platform
+        <div style="font-size:0.72rem; color:#ACACAC; text-align:center; padding:0.25rem 0;">
+            NovoView v{_VERSION}
         </div>
         """,
         unsafe_allow_html=True,
