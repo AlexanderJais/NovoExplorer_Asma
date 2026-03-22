@@ -325,11 +325,16 @@ def main() -> None:
             value=20,
             step=5,
             key="similar_genes_n",
+            help=(
+                "Show the top N genes with the most similar expression patterns "
+                "(cosine similarity). A score of 1.0 = identical pattern, 0 = unrelated."
+            ),
         )
 
         similar_df = _find_similar_genes(selected_gene, similarity_data, top_n=top_n)
 
         if similar_df is not None and not similar_df.empty:
+            st.caption("**similarity** = cosine similarity (0 = unrelated, 1 = identical pattern)")
             # Display the table
             st.dataframe(
                 similar_df,
@@ -362,8 +367,10 @@ def main() -> None:
                             st.rerun()
         else:
             st.info(
-                "No similarity data available. Ensure the pipeline computed "
-                "cosine similarity and the gene exists in the similarity matrix."
+                "No similar genes found. This can happen if: (1) the similarity matrix "
+                "was not computed during pipeline execution, or (2) this gene is not among "
+                "the top variable genes used for the similarity analysis. "
+                "You can still view expression profiles and DEG results for this gene."
             )
 
     # ------------------------------------------------------------------

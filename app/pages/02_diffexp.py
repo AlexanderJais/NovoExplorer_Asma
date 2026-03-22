@@ -155,7 +155,8 @@ def main() -> None:
     st.title("Differential Expression Explorer")
     st.caption(
         "Visualize differential expression results with interactive volcano plots, "
-        "sortable gene tables, and per-gene expression profiles."
+        "sortable gene tables, and per-gene expression profiles. "
+        "Use the sidebar to select a comparison and adjust significance thresholds."
     )
     init_basket()
 
@@ -257,7 +258,12 @@ def main() -> None:
     # ------------------------------------------------------------------
     st.divider()
     st.subheader("DEG Table")
-    st.caption("Genes meeting the significance thresholds, sorted by adjusted p-value.")
+    st.caption(
+        "Genes meeting the significance thresholds, sorted by adjusted p-value. "
+        "**log2fc** = log2 fold-change (positive = upregulated), "
+        "**padj** = FDR-adjusted p-value, "
+        "**basemean** = mean expression across all samples."
+    )
 
     # Build display table with required columns
     display_cols = []
@@ -288,10 +294,11 @@ def main() -> None:
     if "regulation" in table_df.columns:
         reg_options = ["all", "up", "down"]
         reg_filter = st.radio(
-            "Filter by regulation",
+            "Filter by direction",
             options=reg_options,
             horizontal=True,
             key="de_reg_filter",
+            help="'up' = higher expression in test vs control, 'down' = lower expression.",
         )
         if reg_filter != "all":
             table_df = table_df[table_df["regulation"] == reg_filter].copy()
@@ -335,7 +342,10 @@ def main() -> None:
                         add_to_basket(gene)
                         st.rerun()
     else:
-        st.info("No genes meet the current significance thresholds.")
+        st.info(
+            f"No genes meet the current thresholds (padj < {padj_thresh}, "
+            f"|log2FC| > {log2fc_thresh}). Try relaxing the thresholds in the sidebar."
+        )
 
     # ------------------------------------------------------------------
     # Expression profile expander when a gene is searched
@@ -350,7 +360,8 @@ def main() -> None:
                 st.plotly_chart(fig_expr, use_container_width=True)
             else:
                 st.warning(
-                    f"Gene '{searched_gene}' not found in expression matrix."
+                    f"Gene '{searched_gene}' not found in expression matrix. "
+                    "Check the spelling or use the Gene Search page to browse available genes."
                 )
 
             # Show DEG stats for the searched gene

@@ -26,6 +26,7 @@ def comparison_selector(comparisons_list, key="comparison"):
         "Select comparison",
         options=comparisons_list,
         key=key,
+        help="Each comparison tests differential expression between two conditions (e.g. Treatment vs Control).",
     )
     return selected
 
@@ -55,6 +56,11 @@ def threshold_sliders(default_padj=0.05, default_log2fc=1.0, key_prefix=""):
         step=0.001,
         format="%.3f",
         key=f"{key_prefix}padj_threshold",
+        help=(
+            "Genes with adjusted p-value below this threshold are considered "
+            "statistically significant. Default 0.05 = 5% false discovery rate. "
+            "Lower values are more stringent."
+        ),
     )
 
     log2fc = st.slider(
@@ -65,6 +71,11 @@ def threshold_sliders(default_padj=0.05, default_log2fc=1.0, key_prefix=""):
         step=0.1,
         format="%.1f",
         key=f"{key_prefix}log2fc_threshold",
+        help=(
+            "Minimum absolute log2 fold-change for biological significance. "
+            "1.0 = 2-fold change, 2.0 = 4-fold change. "
+            "Set to 0 to see all statistically significant genes regardless of effect size."
+        ),
     )
 
     return padj, log2fc
@@ -132,6 +143,7 @@ def gene_search_box(gene_names, key="gene_search"):
         "Search for a gene",
         key=f"{key}_text",
         placeholder="Type a gene name...",
+        help="Start typing a gene symbol (e.g. TP53, BRCA1) to search. Matches partial names.",
     )
 
     if query:

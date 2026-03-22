@@ -383,6 +383,11 @@ def main() -> None:
             step=0.001,
             format="%.3f",
             key="sig_padj",
+            help=(
+                "Only show pathways with adjusted p-value below this threshold. "
+                "This filter applies to all sections on this page, including "
+                "the overlap heatmap and core/unique signatures below."
+            ),
         )
 
     # ------------------------------------------------------------------
@@ -397,6 +402,11 @@ def main() -> None:
     # Section 1: Enrichment dot plot and table per comparison
     # ------------------------------------------------------------------
     st.header("Enrichment Results")
+    st.caption(
+        "Enrichment analysis identifies biological pathways and gene sets that are "
+        "over-represented among your differentially expressed genes. "
+        "Dot size = number of genes, color intensity = statistical significance."
+    )
 
     for comp in comps_to_show:
         combined_df = _collect_enrichment_for_comparison(
@@ -476,8 +486,9 @@ def main() -> None:
     # --- Jaccard overlap heatmap ---
     st.subheader("Signature Overlap (Jaccard Similarity)")
     st.caption(
-        "Jaccard similarity between comparisons based on sets of significantly "
-        "enriched terms (padj threshold applied)."
+        "How much do comparisons share the same enriched pathways? "
+        "Jaccard index: 0 = completely different pathways, 1 = identical. "
+        "High overlap suggests shared biological mechanisms across conditions."
     )
 
     # Try pre-computed overlap first, fall back to computing from enrichment

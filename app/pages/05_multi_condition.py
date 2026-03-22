@@ -475,7 +475,10 @@ def main() -> None:
         else:
             st.info("No exclusive intersections found at the current thresholds.")
     else:
-        st.info("No significant DEGs found at the current thresholds.")
+        st.info(
+            f"No significant DEGs at the current thresholds (padj < {padj_thresh}, "
+            f"|log2FC| > {log2fc_thresh}). Try relaxing the thresholds in the sidebar."
+        )
 
     st.divider()
 
@@ -541,9 +544,11 @@ def main() -> None:
     # ==================================================================
     st.header("Gene-Level Summary")
     st.caption(
-        "Log2 fold-change per comparison for every gene significant in at least "
-        "one comparison. Cells are colored: vermilion = significantly up, "
-        "blue = significantly down, gray = not significant."
+        f"Log2 fold-change per comparison for genes significant (padj < {padj_thresh}, "
+        f"|log2FC| > {log2fc_thresh}) in at least one comparison. "
+        "Cells are colored: vermilion = significantly up, "
+        "blue = significantly down, gray = not significant. "
+        "Adjust sidebar thresholds to change filtering."
     )
 
     summary_df = _build_summary_table(deg_all, padj_thresh, log2fc_thresh)
@@ -576,7 +581,17 @@ def main() -> None:
                 val = row[lfc_col]
                 padj_val = row.get(padj_col, np.nan)
                 style = _style_log2fc_cell(val, padj_val, padj_thresh, log2fc_thresh)
-                display_val = f"{val:.2f}" if pd.notna(val) else "---"
+                if pd.notna(val):
+                    # Add directional arrow for accessibility (colorblind-friendly)
+                    is_sig = pd.notna(padj_val) and padj_val < padj_thresh and abs(val) > log2fc_thresh
+                    if is_sig and val > 0:
+                        display_val = f"&uarr; {val:.2f}"
+                    elif is_sig and val < 0:
+                        display_val = f"&darr; {val:.2f}"
+                    else:
+                        display_val = f"{val:.2f}"
+                else:
+                    display_val = "---"
                 cells.append(
                     f'<td style="{style} text-align:center; padding:0.5rem 0.75rem; '
                     f'border-radius:4px;">{display_val}</td>'

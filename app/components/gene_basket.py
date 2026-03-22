@@ -65,7 +65,10 @@ def render_basket():
         st.markdown("### Gene Basket")
 
         if not basket_snapshot:
-            st.caption("Add genes from any analysis page.")
+            st.caption(
+                "Collect genes of interest using the **+ Gene** buttons on any page. "
+                "Your basket persists as you navigate. View basket heatmaps on the Gene Search page."
+            )
             return
 
         st.caption(f"{len(basket_snapshot)} gene(s)")

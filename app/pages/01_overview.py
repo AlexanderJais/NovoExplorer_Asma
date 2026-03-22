@@ -163,6 +163,11 @@ def main() -> None:
     col2.metric("Total Genes", fmt_count(n_genes))
     col3.metric("Comparisons", fmt_count(n_comparisons))
     col4.metric("Total DEGs", fmt_count(total_degs))
+    st.caption(
+        f"Experiment summary: {n_samples} samples, {n_genes:,} measured genes, "
+        f"{n_comparisons} differential expression comparisons. "
+        f"Total DEGs counted at default thresholds (padj < 0.05, |log2FC| > 1)."
+    )
 
     # ------------------------------------------------------------------
     # Middle section: PCA / UMAP + Correlation heatmap
@@ -187,6 +192,11 @@ def main() -> None:
                 "Embedding method",
                 options=available_methods,
                 key="overview_embedding_method",
+                help=(
+                    "PCA shows major axes of variation (linear). "
+                    "UMAP reveals local sample clusters (non-linear). "
+                    "Both help visualize how samples relate to each other."
+                ),
             )
 
             sample_names = (
