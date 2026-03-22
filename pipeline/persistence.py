@@ -48,6 +48,7 @@ def _safe_put(store: pd.HDFStore, key: str, value) -> None:
         logger.warning("Skipping key '%s': unsupported type %s.", key, type(value).__name__)
         return
     if value.empty:
+        logger.debug("Skipping empty DataFrame for key '%s'.", key)
         return
     store.put(key, value, format="table")
 
@@ -292,8 +293,10 @@ def load_results(output_path: str | Path) -> Dict[str, Any]:
 
     except FileNotFoundError:
         logger.error("Results file not found: '%s'.", output_path)
+        raise
     except Exception as exc:
         logger.error("Failed to load results from '%s': %s", output_path, exc)
+        raise
 
     # ---- Project-level attributes ----
     try:
@@ -322,7 +325,11 @@ def load_results(output_path: str | Path) -> Dict[str, Any]:
             "Could not read project metadata from '%s': %s", output_path, exc
         )
 
-    logger.info("Results loaded from '%s'.", output_path)
+    logger.info(
+        "Results loaded from '%s' (sections: %s).",
+        output_path,
+        ", ".join(k for k, v in results.items() if v is not None) or "none",
+    )
     return results
 
 
@@ -347,6 +354,12 @@ def load_expression(
     -------
     pd.DataFrame or None
     """
+    _ALLOWED_MATRIX_TYPES = {"counts", "tpm", "fpkm"}
+    if matrix_type not in _ALLOWED_MATRIX_TYPES:
+        raise ValueError(
+            f"Invalid matrix_type {matrix_type!r}; "
+            f"expected one of {sorted(_ALLOWED_MATRIX_TYPES)}."
+        )
     output_path = Path(output_path)
     key = f"/expression/{matrix_type}"
     try:
@@ -555,7 +568,7 @@ def list_comparisons(output_path: str | Path) -> List[str]:
                     comp_name = key.split("/deg/", 1)[1].strip("/")
                     comparisons.append(comp_name)
             return sorted(comparisons)
-    except (FileNotFoundError, KeyError, Exception) as exc:
+    except (FileNotFoundError, KeyError, OSError) as exc:
         logger.warning("Could not list comparisons from '%s': %s", output_path, exc)
         return []
 

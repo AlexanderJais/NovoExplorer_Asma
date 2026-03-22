@@ -8,6 +8,7 @@ Provides three analysis sections:
 
 from __future__ import annotations
 
+import html as _html
 import sys
 from itertools import combinations
 from pathlib import Path
@@ -113,6 +114,16 @@ def _compute_upset_data(
     comparisons = sorted(sig_genes.keys())
     if not comparisons:
         return pd.DataFrame()
+
+    _MAX_UPSET_COMPARISONS = 15
+    if len(comparisons) > _MAX_UPSET_COMPARISONS:
+        import logging as _logging
+        _logging.getLogger(__name__).warning(
+            "UpSet computation capped at %d comparisons (got %d) to avoid "
+            "exponential blowup (2^n subsets).",
+            _MAX_UPSET_COMPARISONS, len(comparisons),
+        )
+        comparisons = comparisons[:_MAX_UPSET_COMPARISONS]
 
     rows = []
     n = len(comparisons)
@@ -348,11 +359,11 @@ def _build_summary_table(
         else:
             genes = df[gc].astype(str)
 
-        for idx, gene in enumerate(genes):
+        for pos_idx, gene in enumerate(genes):
             if pd.isna(gene) or str(gene).strip().lower() == "nan" or gene == "":
                 continue
             all_genes.add(gene)
-            row_data = df.iloc[idx]
+            row_data = df.iloc[pos_idx]
             gene_data.setdefault(gene, {})[comp] = {
                 "log2fc": row_data.get("log2fc", np.nan),
                 "padj": row_data.get("padj", np.nan),
@@ -575,7 +586,7 @@ def main() -> None:
         # Use a styled HTML table for colored cells
         html_rows = []
         for _, row in summary_df.iterrows():
-            cells = [f'<td style="font-weight:600; padding:0.5rem 0.75rem;">{row["gene"]}</td>']
+            cells = [f'<td style="font-weight:600; padding:0.5rem 0.75rem;">{_html.escape(str(row["gene"]))}</td>']
             for lfc_col in log2fc_cols:
                 comp_name = lfc_col.replace("log2fc_", "")
                 padj_col = f"padj_{comp_name}"
@@ -603,7 +614,7 @@ def main() -> None:
         header_cells = ['<th style="text-align:left; padding:0.65rem 0.75rem;">Gene</th>']
         for ch in comp_headers:
             header_cells.append(
-                f'<th style="text-align:center; padding:0.65rem 0.75rem;">{ch}</th>'
+                f'<th style="text-align:center; padding:0.65rem 0.75rem;">{_html.escape(ch)}</th>'
             )
 
         # Limit display to 200 rows in HTML, offer CSV for full data

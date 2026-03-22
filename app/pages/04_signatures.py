@@ -93,6 +93,12 @@ def _normalize_enrichment_df(df: pd.DataFrame) -> pd.DataFrame:
     if "padj" not in out.columns:
         for col in ("pvalue", "P-value", "NOM p-val"):
             if col in df.columns:
+                import logging as _logging
+                _logging.getLogger(__name__).warning(
+                    "No adjusted p-value column found; using raw '%s' as padj. "
+                    "Results may contain more false positives than expected.",
+                    col,
+                )
                 out["padj"] = pd.to_numeric(df[col], errors="coerce").values
                 break
 

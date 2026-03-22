@@ -335,14 +335,14 @@ def read_table_flexible(path) -> pd.DataFrame:
 
     # Strategy 3: Excel
     try:
-        xls = pd.ExcelFile(path)
-        if len(xls.sheet_names) > 1:
-            _logger.warning(
-                "Excel file '%s' has %d sheets; reading only the first ('%s').",
-                path.name, len(xls.sheet_names), xls.sheet_names[0],
-            )
-        df = pd.read_excel(xls, sheet_name=0)
-        return df
+        with pd.ExcelFile(path) as xls:
+            if len(xls.sheet_names) > 1:
+                _logger.warning(
+                    "Excel file '%s' has %d sheets; reading only the first ('%s').",
+                    path.name, len(xls.sheet_names), xls.sheet_names[0],
+                )
+            df = pd.read_excel(xls, sheet_name=0)
+            return df
     except Exception:
         pass
 

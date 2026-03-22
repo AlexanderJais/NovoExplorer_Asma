@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from itertools import cycle
+
 import numpy as np
 import pandas as pd
 import seaborn as sns
@@ -12,6 +14,7 @@ from scipy.spatial.distance import pdist
 from novoview.plotting.theme import (
     WONG_PALETTE,
     DIVERGING_CMAP,
+    PLOTLY_DIVERGING_CMAP,
     apply_plotly_theme,
     apply_matplotlib_theme,
 )
@@ -95,7 +98,7 @@ def create_clustered_heatmap(
         if isinstance(sample_groups, dict):
             sample_groups = pd.Series(sample_groups)
         unique_groups = sample_groups.unique()
-        palette = dict(zip(unique_groups, WONG_PALETTE[: len(unique_groups)]))
+        palette = dict(zip(unique_groups, cycle(WONG_PALETTE)))
         col_colors = sample_groups.reindex(zscored.columns).map(palette)
         col_colors.name = "Condition"
 
@@ -194,7 +197,8 @@ def create_heatmap_plotly(
             z=zscored.values,
             x=zscored.columns.tolist(),
             y=zscored.index.tolist(),
-            colorscale=DIVERGING_CMAP,
+            colorscale=PLOTLY_DIVERGING_CMAP,
+            reversescale=True,
             zmid=0,
             zmin=-3,
             zmax=3,

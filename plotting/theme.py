@@ -27,7 +27,10 @@ VOLCANO_COLORS: dict[str, str] = {
     "ns": "#BBBBBB",
 }
 
+# NOTE: "RdBu_r" works for matplotlib/seaborn but Plotly needs "RdBu" with
+# reversescale=True.  Plotting code must handle the distinction.
 DIVERGING_CMAP: str = "RdBu_r"
+PLOTLY_DIVERGING_CMAP: str = "RdBu"
 SEQUENTIAL_CMAP: str = "viridis"
 
 # ---------------------------------------------------------------------------
@@ -71,7 +74,9 @@ def apply_matplotlib_theme() -> None:
     }
     mpl.rcParams.update(rc)
     sns.set_theme(style="ticks", rc=rc)
-    sns.despine()
+    # sns.despine() omitted here -- it only affects the *current* axes and is
+    # redundant with the axes.spines.top/right rcParams set above.  Each figure
+    # should call sns.despine() after creation if needed.
 
 
 # ---------------------------------------------------------------------------
@@ -134,9 +139,13 @@ def apply_plotly_theme(fig: go.Figure) -> go.Figure:
     plotly.graph_objects.Figure
         The same figure, modified in place and returned for chaining.
     """
+    # Merge margins: only set defaults for margins the caller hasn't customized
+    _defaults = {"l": 60, "r": 20, "t": 40, "b": 50}
+    existing = fig.layout.margin.to_plotly_json() if fig.layout.margin else {}
+    merged = {**_defaults, **{k: v for k, v in existing.items() if v is not None}}
     fig.update_layout(
         template=get_plotly_template(),
-        margin=dict(l=60, r=20, t=40, b=50),
+        margin=merged,
     )
     return fig
 

@@ -55,6 +55,18 @@ def create_enrichment_dotplot(
     """
     df = _prepare_enrichment(enrichment_df, max_terms)
 
+    if df.empty:
+        fig = go.Figure()
+        fig.update_layout(
+            title=title or "Enrichment",
+            annotations=[dict(
+                text="No significant enrichment terms to display",
+                x=0.5, y=0.5, xref="paper", yref="paper",
+                showarrow=False, font=dict(size=14, color="#7A7A7A"),
+            )],
+        )
+        return fig
+
     # Determine x-axis values
     if "gene_ratio" in df.columns:
         x_vals = pd.to_numeric(df["gene_ratio"], errors="coerce")
@@ -150,7 +162,8 @@ def create_enrichment_barplot(
 
     if "category" in df.columns:
         unique_cats = df["category"].unique()
-        palette = dict(zip(unique_cats, WONG_PALETTE[: len(unique_cats)]))
+        from itertools import cycle as _cycle
+        palette = dict(zip(unique_cats, _cycle(WONG_PALETTE)))
         for cat in unique_cats:
             sub = df[df["category"] == cat]
             fig.add_trace(

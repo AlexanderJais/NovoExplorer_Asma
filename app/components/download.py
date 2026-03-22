@@ -5,7 +5,7 @@ from io import BytesIO
 import streamlit as st
 
 
-def download_csv_button(df, filename, label="Download CSV"):
+def download_csv_button(df, filename, label="Download CSV", key=None):
     """Render a download button for a DataFrame as CSV.
 
     Parameters
@@ -16,13 +16,18 @@ def download_csv_button(df, filename, label="Download CSV"):
         Name of the downloaded file (should end in .csv).
     label : str
         Button label text.
+    key : str, optional
+        Unique widget key.  Defaults to ``"dl_csv_{filename}"``.
     """
+    if key is None:
+        key = f"dl_csv_{filename}"
     csv_data = df.to_csv(index=True).encode("utf-8")
     st.download_button(
         label=label,
         data=csv_data,
         file_name=filename,
         mime="text/csv",
+        key=key,
     )
 
 
@@ -61,22 +66,30 @@ def download_figure_buttons(fig, filename_base):
     col_png, col_svg = st.columns(2)
 
     if _is_plotly_figure(fig):
-        with col_png:
-            png_bytes = fig.to_image(format="png", scale=2, width=1200, height=800)
-            st.download_button(
-                label="Download PNG",
-                data=png_bytes,
-                file_name=f"{filename_base}.png",
-                mime="image/png",
-            )
+        try:
+            with col_png:
+                png_bytes = fig.to_image(format="png", scale=2, width=1200, height=800)
+                st.download_button(
+                    label="Download PNG",
+                    data=png_bytes,
+                    file_name=f"{filename_base}.png",
+                    mime="image/png",
+                    key=f"dl_png_{filename_base}",
+                )
 
-        with col_svg:
-            svg_bytes = fig.to_image(format="svg")
-            st.download_button(
-                label="Download SVG",
-                data=svg_bytes,
-                file_name=f"{filename_base}.svg",
-                mime="image/svg+xml",
+            with col_svg:
+                svg_bytes = fig.to_image(format="svg")
+                st.download_button(
+                    label="Download SVG",
+                    data=svg_bytes,
+                    file_name=f"{filename_base}.svg",
+                    mime="image/svg+xml",
+                    key=f"dl_svg_{filename_base}",
+                )
+        except (ValueError, ImportError):
+            st.warning(
+                "Image export requires the **kaleido** package. "
+                "Install it with: `pip install kaleido`"
             )
 
     elif _is_matplotlib_figure(fig):
@@ -89,6 +102,7 @@ def download_figure_buttons(fig, filename_base):
                 data=buf.getvalue(),
                 file_name=f"{filename_base}.png",
                 mime="image/png",
+                key=f"dl_png_{filename_base}",
             )
 
         with col_svg:
@@ -100,6 +114,7 @@ def download_figure_buttons(fig, filename_base):
                 data=buf.getvalue(),
                 file_name=f"{filename_base}.svg",
                 mime="image/svg+xml",
+                key=f"dl_svg_{filename_base}",
             )
 
     else:

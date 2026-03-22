@@ -33,10 +33,7 @@ _DEFAULT_DATA_PATH = str(_NOVOVIEW_ROOT / "results" / "novoview_results.h5")
 
 def get_data_path() -> str:
     """Return the HDF5 results path from session state."""
-    return st.session_state.get(
-        "results_path",
-        st.session_state.get("data_path", _DEFAULT_DATA_PATH),
-    )
+    return st.session_state.get("results_path", _DEFAULT_DATA_PATH)
 
 
 def check_data_path(data_path: str) -> bool:

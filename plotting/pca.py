@@ -2,18 +2,15 @@
 
 from __future__ import annotations
 
+from itertools import cycle
+
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 
 from novoview.plotting.theme import (
     WONG_PALETTE,
-    VOLCANO_COLORS,
-    DIVERGING_CMAP,
-    SEQUENTIAL_CMAP,
     apply_plotly_theme,
-    apply_matplotlib_theme,
-    get_plotly_template,
     format_axis_label,
 )
 
@@ -125,8 +122,8 @@ def create_pca_scatter(
         if isinstance(sample_groups, dict):
             sample_groups = pd.Series(sample_groups)
         groups = sample_groups.reindex(samples) if hasattr(sample_groups, "reindex") else sample_groups
-        unique_groups = groups.unique()
-        palette = dict(zip(unique_groups, WONG_PALETTE[: len(unique_groups)]))
+        unique_groups = [g for g in groups.unique() if pd.notna(g)]
+        palette = dict(zip(unique_groups, cycle(WONG_PALETTE)))
 
         for grp in unique_groups:
             mask = (groups == grp).values if hasattr(groups, "values") else (groups == grp)
@@ -171,8 +168,8 @@ def create_pca_scatter(
 
     fig.update_layout(
         title=title,
-        xaxis_title=format_axis_label(f"PC1", f"{ve[0]:.1f}% variance"),
-        yaxis_title=format_axis_label(f"PC2", f"{ve[1]:.1f}% variance"),
+        xaxis_title=format_axis_label("PC1", f"{ve[0]:.1f}% variance"),
+        yaxis_title=format_axis_label("PC2", f"{ve[1]:.1f}% variance"),
         legend=dict(x=1.02, y=1, xanchor="left"),
     )
 
@@ -221,8 +218,8 @@ def create_umap_scatter(
         if isinstance(sample_groups, dict):
             sample_groups = pd.Series(sample_groups)
         groups = sample_groups.reindex(samples) if hasattr(sample_groups, "reindex") else sample_groups
-        unique_groups = groups.unique()
-        palette = dict(zip(unique_groups, WONG_PALETTE[: len(unique_groups)]))
+        unique_groups = [g for g in groups.unique() if pd.notna(g)]
+        palette = dict(zip(unique_groups, cycle(WONG_PALETTE)))
 
         for grp in unique_groups:
             mask = (groups == grp).values if hasattr(groups, "values") else (groups == grp)

@@ -1,5 +1,7 @@
 """Gene basket using st.session_state for NovoView."""
 
+import html
+
 import streamlit as st
 
 
@@ -77,7 +79,7 @@ def render_basket():
             col_name, col_btn = st.columns([4, 1])
             with col_name:
                 st.markdown(
-                    f"<span style='font-size:0.85rem; font-weight:500;'>{gene}</span>",
+                    f"<span style='font-size:0.85rem; font-weight:500;'>{html.escape(gene)}</span>",
                     unsafe_allow_html=True,
                 )
             with col_btn:

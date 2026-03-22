@@ -331,11 +331,14 @@ def run_pydeseq2(
 
             # Build results DataFrame
             res_df = stat.results_df.copy()
+            # The former index (gene IDs) becomes the first column after reset
+            idx_name = res_df.index.name or "index"
             res_df = res_df.reset_index()
             res_df.columns = [c.strip() for c in res_df.columns]
 
             # Map pyDESeq2 column names to our standard names
             rename_map = {
+                idx_name: "gene_id",
                 "index": "gene_id",
                 "baseMean": "basemean",
                 "log2FoldChange": "log2fc",
@@ -396,8 +399,8 @@ def get_significant_genes(
 ) -> pd.DataFrame:
     """Filter a DEG table to only significant genes.
 
-    A gene is considered significant if ``padj < padj_threshold`` and
-    ``|log2fc| > log2fc_threshold``.
+    A gene is considered significant if ``padj <= padj_threshold`` and
+    ``|log2fc| >= log2fc_threshold``.
 
     Parameters
     ----------

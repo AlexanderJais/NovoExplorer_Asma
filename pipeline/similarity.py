@@ -34,7 +34,7 @@ def compute_cosine_similarity_matrix(
         The index must contain gene identifiers.
     top_n_genes : int, optional
         Number of most-variable genes to retain before computing the
-        similarity matrix (default 5000).
+        similarity matrix (default 2000).
 
     Returns
     -------
@@ -49,6 +49,16 @@ def compute_cosine_similarity_matrix(
         expression_df.shape[0],
         expression_df.shape[1],
     )
+
+    _MAX_SAFE_GENES = 10000
+    if top_n_genes > _MAX_SAFE_GENES:
+        logger.warning(
+            "top_n_genes=%d exceeds %d; this creates a %.1f GB matrix. "
+            "Capping at %d.",
+            top_n_genes, _MAX_SAFE_GENES,
+            (top_n_genes ** 2 * 8) / 1e9, _MAX_SAFE_GENES,
+        )
+        top_n_genes = _MAX_SAFE_GENES
 
     # Select top N most variable genes by variance across samples
     variances = expression_df.var(axis=1)
@@ -173,8 +183,9 @@ def cluster_genes(
 
     condensed = squareform(distance_matrix, checks=False)
 
-    # Ward's linkage
-    linkage_matrix = linkage(condensed, method="ward")
+    # Average linkage (Ward requires Euclidean distances; cosine distances
+    # violate its assumptions and can produce non-monotonic dendrograms)
+    linkage_matrix = linkage(condensed, method="average")
 
     # Binary-search for a cut height that yields the desired cluster count
     heights = linkage_matrix[:, 2]
@@ -422,7 +433,7 @@ def run_similarity(
         Pipeline configuration.  Recognised keys (all optional):
 
         * ``top_n_genes`` – number of variable genes for the similarity
-          matrix (default 5000).
+          matrix (default 2000).
         * ``min_clusters`` – minimum cluster count (default 20).
         * ``max_clusters`` – maximum cluster count (default 50).
 

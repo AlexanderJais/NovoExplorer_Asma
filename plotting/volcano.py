@@ -81,6 +81,19 @@ def create_volcano_plotly(
         raise ValueError(f"DEG DataFrame missing required columns: {missing}")
 
     df = deg_df.dropna(subset=["padj", "log2fc"]).copy()
+
+    if df.empty:
+        fig = go.Figure()
+        fig.update_layout(
+            title=title or "Volcano Plot",
+            annotations=[dict(
+                text="No genes with valid padj and log2fc values",
+                x=0.5, y=0.5, xref="paper", yref="paper",
+                showarrow=False, font=dict(size=14, color="#7A7A7A"),
+            )],
+        )
+        return fig
+
     # Ensure gene_name column exists for labeling
     if "gene_name" not in df.columns:
         df["gene_name"] = df.index.astype(str)
@@ -257,4 +270,6 @@ def create_volcano_matplotlib(
     ax.legend(frameon=False, fontsize=6, markerscale=1.5)
     fig.tight_layout()
 
+    # Note: caller is responsible for closing the figure (plt.close(fig))
+    # when done to prevent memory leaks in server contexts.
     return fig, ax

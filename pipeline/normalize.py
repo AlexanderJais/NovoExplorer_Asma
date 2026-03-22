@@ -9,7 +9,7 @@ genes, and selecting highly variable genes.
 import numpy as np
 import pandas as pd
 
-from pipeline.utils import find_column, load_gene_id_mapping, setup_logger
+from pipeline.utils import load_gene_id_mapping, setup_logger
 
 logger = setup_logger(__name__)
 
@@ -158,6 +158,11 @@ def standardize_expression_matrix(
     # Attempt Ensembl -> symbol mapping
     try:
         mapping = load_gene_id_mapping(organism=organism)
+        if not mapping:
+            logger.info(
+                "Gene ID mapping for organism '%s' is empty -- skipping ID conversion.",
+                organism,
+            )
         if mapping is not None and len(mapping) > 0:
             # Build a Series for vectorized lookup instead of per-element lambda
             mapping_series = pd.Series(mapping, dtype="object")

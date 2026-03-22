@@ -16,6 +16,7 @@ is provided, the full analysis UI becomes available.
 
 from __future__ import annotations
 
+import html
 import sys
 from pathlib import Path
 
@@ -260,8 +261,8 @@ with st.sidebar:
     # Project info card
     cfg = st.session_state.get("config", {})
     if cfg:
-        project_name = cfg.get("project_name", cfg.get("data_dir", "Unknown"))
-        organism = cfg.get("organism", "human").capitalize()
+        project_name = html.escape(cfg.get("project_name", cfg.get("data_dir", "Unknown")))
+        organism = html.escape(cfg.get("organism", "human").capitalize())
         st.markdown(
             f"""
             <div style="background:linear-gradient(135deg, #FFFFFF 0%, #F8FAFE 100%);
