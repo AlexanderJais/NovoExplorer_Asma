@@ -77,7 +77,16 @@ def create_volcano_plotly(
     -------
     plotly.graph_objects.Figure
     """
+    # Validate required columns
+    required = {"log2fc", "padj"}
+    missing = required - set(deg_df.columns)
+    if missing:
+        raise ValueError(f"DEG DataFrame missing required columns: {missing}")
+
     df = deg_df.dropna(subset=["padj", "log2fc"]).copy()
+    # Ensure gene_name column exists for labeling
+    if "gene_name" not in df.columns:
+        df["gene_name"] = df.index.astype(str)
     df["neg_log10_padj"] = -np.log10(df["padj"].clip(lower=1e-300))
     category = _classify_genes(df, padj_threshold, log2fc_threshold)
 
@@ -191,7 +200,14 @@ def create_volcano_matplotlib(
 
     apply_matplotlib_theme()
 
+    required = {"log2fc", "padj"}
+    missing = required - set(deg_df.columns)
+    if missing:
+        raise ValueError(f"DEG DataFrame missing required columns: {missing}")
+
     df = deg_df.dropna(subset=["padj", "log2fc"]).copy()
+    if "gene_name" not in df.columns:
+        df["gene_name"] = df.index.astype(str)
     df["neg_log10_padj"] = -np.log10(df["padj"].clip(lower=1e-300))
     category = _classify_genes(df, padj_threshold, log2fc_threshold)
 

@@ -63,6 +63,11 @@ def create_ma_plot_plotly(
     -------
     plotly.graph_objects.Figure
     """
+    required = {"log2fc", "padj", "basemean"}
+    missing = required - set(deg_df.columns)
+    if missing:
+        raise ValueError(f"DEG DataFrame missing required columns: {missing}")
+
     df = deg_df.dropna(subset=["log2fc", "padj", "basemean"]).copy()
     df["log2_basemean"] = np.log2(df["basemean"].clip(lower=1e-10))
     category = _classify_genes(df, padj_threshold, log2fc_threshold)
@@ -144,6 +149,11 @@ def create_ma_plot_matplotlib(
     tuple[matplotlib.figure.Figure, matplotlib.axes.Axes]
     """
     apply_matplotlib_theme()
+
+    required = {"log2fc", "padj", "basemean"}
+    missing = required - set(deg_df.columns)
+    if missing:
+        raise ValueError(f"DEG DataFrame missing required columns: {missing}")
 
     df = deg_df.dropna(subset=["log2fc", "padj", "basemean"]).copy()
     df["log2_basemean"] = np.log2(df["basemean"].clip(lower=1e-10))

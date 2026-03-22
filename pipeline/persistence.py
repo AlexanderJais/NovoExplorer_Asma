@@ -104,16 +104,27 @@ def save_results(results: Dict[str, Any], output_path: str | Path) -> None:
             _safe_put(store, key, df)
 
         # ---- Enrichment tables (comparison / database) ----
+        # Handles two structures:
+        #   1. Flat: {comparison: {database: DataFrame}}  (from ingest)
+        #   2. Nested: {comparison: {database: {gsea: df, ora_up: df, ...}}} (from signatures)
         enrichment = results.get("enrichment") or {}
         for comp_name, db_dict in enrichment.items():
             if not isinstance(db_dict, dict):
                 continue
-            for db_name, df in db_dict.items():
-                key = (
+            for db_name, value in db_dict.items():
+                base_key = (
                     f"/enrichment/{_sanitize_name(comp_name)}"
                     f"/{_sanitize_name(db_name)}"
                 )
-                _safe_put(store, key, df)
+                if isinstance(value, pd.DataFrame):
+                    _safe_put(store, base_key, value)
+                elif isinstance(value, dict):
+                    # Nested structure: save each sub-table
+                    for sub_name, sub_df in value.items():
+                        if isinstance(sub_df, pd.DataFrame):
+                            _safe_put(store, f"{base_key}/{_sanitize_name(sub_name)}", sub_df)
+                else:
+                    logger.warning("Unexpected enrichment value type for %s: %s", base_key, type(value))
 
         # ---- Similarity ----
         similarity = results.get("similarity") or {}

@@ -20,6 +20,8 @@ import time
 from pathlib import Path
 from typing import Any, Dict, Optional
 
+import pandas as pd
+
 from pipeline.utils import load_config, setup_logger
 
 logger = setup_logger("run_pipeline")
@@ -178,21 +180,50 @@ def run_pipeline(config: Dict[str, Any]) -> None:
         "Signatures",
         signatures.run_signatures,
         deg_results=primary_deg,
-        enrichment_results_novogene=ingested.get("enrichment") if ingested else None,
+        enrichment_results_novogene=ingest_data.get("enrichment") if ingest_data else None,
         config=config,
     )
 
     # ------------------------------------------------------------------
     # 7. Save
     # ------------------------------------------------------------------
+    # Restructure pipeline outputs to match persistence.save_results() contract
     all_results = {
-        "config": config,
-        "ingest": ingest_data,
-        "normalization": norm_result,
-        "qc": qc_result,
-        "diffexp": diffexp_result,
-        "similarity": similarity_result,
-        "signatures": signatures_result,
+        # Expression matrices
+        "expression": {
+            "counts": expression.get("counts") if expression else None,
+            "tpm": expression.get("tpm") if expression else None,
+            "fpkm": expression.get("fpkm") if expression else None,
+        },
+        # DEG tables (dict of comparison -> DataFrame)
+        "deg": primary_deg,
+        # Enrichment results (dict of comparison -> {db -> DataFrame})
+        "enrichment": (
+            ingest_data.get("enrichment", {}) if ingest_data else {}
+        ),
+        # Similarity results
+        "similarity": similarity_result or {},
+        # QC results
+        "qc": qc_result or {},
+        # Embeddings (extracted from QC PCA/UMAP results)
+        "embeddings": {
+            "pca_coordinates": qc_result.get("pca", {}).get("coordinates") if qc_result else None,
+            "pca_variance": qc_result.get("pca", {}).get("variance_explained") if qc_result else None,
+            "umap": qc_result.get("umap") if qc_result else None,
+        },
+        # Signature analysis
+        "signatures": signatures_result or {},
+        # Metadata
+        "metadata": {
+            "samples": sample_info,
+            "genes": pd.DataFrame({"gene_id": norm_counts.index.tolist()}) if norm_counts is not None else None,
+            "comparisons": pd.DataFrame({"comparison": list(primary_deg.keys())}) if primary_deg else None,
+            "project": {
+                "project_name": config.get("project_name", ""),
+                "organism": organism,
+                "data_dir": data_dir,
+            },
+        },
     }
 
     _run_step(
