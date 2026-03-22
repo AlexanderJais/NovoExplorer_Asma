@@ -14,7 +14,12 @@ from typing import Any, Dict, List, Optional
 
 import pandas as pd
 
-from pipeline.utils import read_table_flexible, setup_logger, standardize_deg_columns
+from pipeline.utils import (
+    read_table_flexible,
+    setup_logger,
+    standardize_deg_columns,
+    standardize_enrichment_columns,
+)
 
 logger = setup_logger(__name__)
 
@@ -369,6 +374,10 @@ def parse_enrichment_results(
             try:
                 df = read_table_flexible(fpath)
                 if df is not None and not df.empty:
+                    df = standardize_enrichment_columns(df)
+                    # Tag with database category if not already present
+                    if "category" not in df.columns:
+                        df["category"] = db_name
                     comp_results[db_name] = df
                     logger.info("      -> %d terms", len(df))
                 else:
