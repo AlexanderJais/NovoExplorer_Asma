@@ -1,0 +1,38 @@
+# NovoView Configuration
+project_name: "My RNA-Seq Experiment"
+
+# Path to Novogene delivery folder(s)
+data_dir: "./data"
+output_dir: "./results"
+
+# Organism (determines gene name mappings and gene set databases)
+organism: "human"   # "human" or "mouse"
+
+# Differential expression thresholds
+padj_threshold: 0.05
+log2fc_threshold: 1.0
+
+# Whether to re-run DE with pyDESeq2 even if Novogene results exist
+rerun_de: false
+
+# Contrasts (leave as "auto" to discover from folder names)
+comparisons: "auto"
+# Or specify explicitly:
+# comparisons:
+#   - ["Treatment", "Control"]
+#   - ["DrugA", "Vehicle"]
+
+# Gene similarity
+similarity_top_n: 50               # Number of similar genes to return per query
+similarity_variable_genes: 5000    # Top N variable genes for similarity matrix
+
+# Signatures
+signature_min_comparisons: 2       # Minimum comparisons for "core" signature
+gene_set_databases:
+  - "MSigDB_Hallmark_2020"
+  - "GO_Biological_Process_2023"
+  - "KEGG_2021_Human"
+
+# Web app
+app_port: 8501
+app_theme: "light"

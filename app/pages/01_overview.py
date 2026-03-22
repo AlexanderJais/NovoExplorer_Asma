@@ -1,0 +1,344 @@
+"""Overview Dashboard -- NovoView Streamlit page.
+
+Displays high-level metrics, dimensionality-reduction scatters, sample
+correlation heatmap, top-variable-gene heatmap, and per-comparison DEG
+summary table.
+"""
+
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+import plotly.express as px
+import plotly.graph_objects as go
+import streamlit as st
+
+# ---------------------------------------------------------------------------
+# Ensure the novoview package root is importable
+# ---------------------------------------------------------------------------
+_NOVOVIEW_ROOT = Path(__file__).resolve().parents[2]
+if str(_NOVOVIEW_ROOT) not in sys.path:
+    sys.path.insert(0, str(_NOVOVIEW_ROOT))
+
+from pipeline.persistence import (  # noqa: E402
+    load_results,
+    load_expression,
+    load_qc,
+    load_deg,
+)
+from plotting.pca import create_pca_scatter, create_umap_scatter  # noqa: E402
+from plotting.heatmap import create_heatmap_plotly  # noqa: E402
+from app.components.filters import threshold_sliders  # noqa: E402
+from app.components.download import download_figure_buttons  # noqa: E402
+
+# ---------------------------------------------------------------------------
+# Page configuration
+# ---------------------------------------------------------------------------
+
+st.set_page_config(page_title="Overview", layout="wide")
+
+# ---------------------------------------------------------------------------
+# Local plotting helpers
+# ---------------------------------------------------------------------------
+
+
+def _create_correlation_heatmap(corr_df: pd.DataFrame) -> go.Figure:
+    """Build a sample-sample correlation heatmap."""
+    from plotting.theme import apply_plotly_theme, get_nature_colorscale
+
+    fig = go.Figure(
+        data=go.Heatmap(
+            z=corr_df.values,
+            x=corr_df.columns.tolist(),
+            y=corr_df.index.tolist(),
+            colorscale=get_nature_colorscale("diverging"),
+            zmin=-1,
+            zmax=1,
+            colorbar=dict(title="r"),
+            hovertemplate=(
+                "Sample X: %{x}<br>"
+                "Sample Y: %{y}<br>"
+                "r = %{z:.3f}<extra></extra>"
+            ),
+        )
+    )
+    fig.update_layout(
+        title="Sample Correlation",
+        xaxis=dict(tickangle=-45),
+        height=550,
+    )
+    apply_plotly_theme(fig)
+    return fig
+
+
+# ---------------------------------------------------------------------------
+# Data loading with caching
+# ---------------------------------------------------------------------------
+
+DATA_PATH_KEY = "data_path"
+DEFAULT_DATA_PATH = str(_NOVOVIEW_ROOT / "results" / "novoview_results.h5")
+
+
+def _get_data_path() -> str:
+    return st.session_state.get(DATA_PATH_KEY, DEFAULT_DATA_PATH)
+
+
+@st.cache_data(show_spinner="Loading results...")
+def _load_all_results(path: str) -> dict:
+    return load_results(path)
+
+
+@st.cache_data(show_spinner="Loading expression matrix...")
+def _load_expression(path: str, matrix_type: str = "tpm") -> pd.DataFrame | None:
+    return load_expression(path, matrix_type=matrix_type)
+
+
+@st.cache_data(show_spinner="Loading QC data...")
+def _load_qc(path: str) -> dict | None:
+    return load_qc(path)
+
+
+@st.cache_data(show_spinner="Loading DEG data...")
+def _load_deg(path: str) -> dict | None:
+    return load_deg(path)
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
+def _get_sample_groups(
+    samples_meta: pd.DataFrame | None,
+    sample_names: list[str],
+) -> pd.Series | None:
+    """Extract a condition Series aligned to *sample_names* from metadata."""
+    if samples_meta is None or samples_meta.empty:
+        return None
+
+    meta = samples_meta.copy()
+    if "sample_id" in meta.columns:
+        meta = meta.set_index("sample_id")
+
+    for candidate in ("condition", "group", "sample_group"):
+        if candidate in meta.columns:
+            groups = meta[candidate].reindex(sample_names)
+            groups.name = "condition"
+            return groups
+
+    return None
+
+
+# ---------------------------------------------------------------------------
+# Main page
+# ---------------------------------------------------------------------------
+
+
+def main() -> None:
+    st.title("Overview Dashboard")
+
+    data_path = _get_data_path()
+
+    if not Path(data_path).exists():
+        st.error(
+            f"Results file not found: `{data_path}`.  "
+            "Run the pipeline first or set the correct path in session state "
+            f"(key: `{DATA_PATH_KEY}`)."
+        )
+        return
+
+    # Load all data
+    results = _load_all_results(data_path)
+    expression_df = _load_expression(data_path, "tpm")
+    qc_data = _load_qc(data_path)
+    deg_all = _load_deg(data_path)
+
+    metadata = results.get("metadata") or {}
+    embeddings = results.get("embeddings") or {}
+    samples_meta = metadata.get("samples")
+
+    # ------------------------------------------------------------------
+    # Top section: metric cards
+    # ------------------------------------------------------------------
+    st.header("Summary Metrics")
+
+    n_samples = expression_df.shape[1] if expression_df is not None else 0
+    n_genes = expression_df.shape[0] if expression_df is not None else 0
+    n_comparisons = len(deg_all) if deg_all else 0
+
+    # Count total DEGs across all comparisons (default thresholds)
+    total_degs = 0
+    if deg_all:
+        for _comp, df in deg_all.items():
+            if "regulation" in df.columns:
+                total_degs += int((df["regulation"] != "ns").sum())
+            elif "padj" in df.columns and "log2fc" in df.columns:
+                total_degs += int(
+                    ((df["padj"] < 0.05) & (df["log2fc"].abs() > 1.0)).sum()
+                )
+
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Total Samples", n_samples)
+    col2.metric("Total Genes", f"{n_genes:,}")
+    col3.metric("Comparisons", n_comparisons)
+    col4.metric("Total DEGs", f"{total_degs:,}")
+
+    # ------------------------------------------------------------------
+    # Middle section: PCA / UMAP + Correlation heatmap
+    # ------------------------------------------------------------------
+    st.header("Dimensionality Reduction & Sample Correlation")
+    left_col, right_col = st.columns(2)
+
+    with left_col:
+        pca_coords = embeddings.get("pca_coordinates")
+        pca_variance = embeddings.get("pca_variance")
+        umap_coords = embeddings.get("umap")
+
+        available_methods: list[str] = []
+        if pca_coords is not None:
+            available_methods.append("PCA")
+        if umap_coords is not None:
+            available_methods.append("UMAP")
+
+        if available_methods:
+            method = st.selectbox(
+                "Embedding method",
+                options=available_methods,
+                key="overview_embedding_method",
+            )
+
+            sample_names = (
+                expression_df.columns.tolist() if expression_df is not None else []
+            )
+            sample_groups = _get_sample_groups(samples_meta, sample_names)
+
+            if method == "PCA" and pca_coords is not None:
+                # Prepare variance array
+                var_array = None
+                if pca_variance is not None:
+                    if isinstance(pca_variance, pd.DataFrame):
+                        var_array = pca_variance.values.flatten()
+                    else:
+                        var_array = np.asarray(pca_variance)
+
+                fig = create_pca_scatter(
+                    pca_coords,
+                    variance_explained=var_array if var_array is not None else [0, 0],
+                    sample_groups=sample_groups,
+                    title="PCA",
+                )
+                st.plotly_chart(fig, use_container_width=True)
+                download_figure_buttons(fig, "pca_scatter")
+
+            elif method == "UMAP" and umap_coords is not None:
+                fig = create_umap_scatter(
+                    umap_coords,
+                    sample_groups=sample_groups,
+                    title="UMAP",
+                )
+                st.plotly_chart(fig, use_container_width=True)
+                download_figure_buttons(fig, "umap_scatter")
+        else:
+            st.info("No PCA or UMAP embeddings available in the results file.")
+
+    with right_col:
+        corr_df = None
+        if qc_data is not None:
+            corr_df = qc_data.get("correlation")
+
+        # Fallback: compute correlation from expression matrix
+        if corr_df is None and expression_df is not None:
+            corr_df = expression_df.corr()
+
+        if corr_df is not None:
+            fig_corr = _create_correlation_heatmap(corr_df)
+            st.plotly_chart(fig_corr, use_container_width=True)
+            download_figure_buttons(fig_corr, "sample_correlation")
+        else:
+            st.info("No correlation data available.")
+
+    # ------------------------------------------------------------------
+    # Bottom section: top variable gene heatmap + DEG summary table
+    # ------------------------------------------------------------------
+    st.header("Top Variable Genes & DEG Summary")
+    bottom_left, bottom_right = st.columns(2)
+
+    with bottom_left:
+        st.subheader("Top 50 Most Variable Genes")
+        if expression_df is not None:
+            sample_groups_dict = None
+            if samples_meta is not None and not samples_meta.empty:
+                meta = samples_meta.copy()
+                if "sample_id" in meta.columns:
+                    meta = meta.set_index("sample_id")
+                for candidate in ("condition", "group", "sample_group"):
+                    if candidate in meta.columns:
+                        sample_groups_dict = meta[candidate]
+                        break
+
+            fig_hm = create_heatmap_plotly(
+                expression_df,
+                sample_groups=sample_groups_dict,
+                genes=None,
+                n_top_genes=50,
+                title="Top 50 Variable Genes (z-score)",
+            )
+            st.plotly_chart(fig_hm, use_container_width=True)
+            download_figure_buttons(fig_hm, "top50_variable_genes")
+        else:
+            st.info("No expression data available.")
+
+    with bottom_right:
+        st.subheader("Per-Comparison DEG Counts")
+        if deg_all:
+            padj_thresh, log2fc_thresh = threshold_sliders(
+                key_prefix="overview_deg_",
+            )
+
+            rows = []
+            for comp_name, df in sorted(deg_all.items()):
+                if "padj" not in df.columns or "log2fc" not in df.columns:
+                    continue
+                sig_mask = (df["padj"] < padj_thresh) & (
+                    df["log2fc"].abs() > log2fc_thresh
+                )
+                sig = df.loc[sig_mask]
+                if "regulation" in sig.columns:
+                    n_up = int((sig["regulation"] == "up").sum())
+                    n_down = int((sig["regulation"] == "down").sum())
+                else:
+                    n_up = int((sig["log2fc"] > 0).sum())
+                    n_down = int((sig["log2fc"] < 0).sum())
+                rows.append(
+                    {
+                        "Comparison": comp_name,
+                        "Total DEGs": len(sig),
+                        "Up": n_up,
+                        "Down": n_down,
+                    }
+                )
+
+            if rows:
+                summary_df = pd.DataFrame(rows)
+                st.dataframe(
+                    summary_df,
+                    use_container_width=True,
+                    hide_index=True,
+                )
+            else:
+                st.info("No DEG results contain the required columns.")
+        else:
+            st.info("No DEG results available.")
+
+
+# ---------------------------------------------------------------------------
+# Entry point
+# ---------------------------------------------------------------------------
+
+if __name__ == "__page__" or __name__ == "__main__":
+    main()
+else:
+    main()

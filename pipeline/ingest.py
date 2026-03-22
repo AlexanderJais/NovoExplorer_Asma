@@ -1,0 +1,579 @@
+"""Novogene file discovery and parsing module.
+
+Walks a Novogene bulk RNA-Seq delivery directory, identifies standard
+folder structures (quantification, DEG, enrichment, QC, mapping), and
+parses the data files within them into pandas DataFrames.
+"""
+
+from __future__ import annotations
+
+import logging
+import re
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+import pandas as pd
+
+from pipeline.utils import read_table_flexible, setup_logger, standardize_deg_columns
+
+logger = setup_logger(__name__)
+
+# ---------------------------------------------------------------------------
+# Directory / file discovery patterns (case-insensitive)
+# ---------------------------------------------------------------------------
+
+_QUANT_PATTERNS = ("quant*", "quantif*", "readcount*", "fpkm*", "tpm*")
+_DEG_PATTERNS = ("diff*", "deg*", "diffexp*")
+_ENRICHMENT_PATTERNS = ("enrich*",)
+_QC_PATTERNS = ("qc*", "01.qc*")
+_MAPPING_PATTERNS = ("bind*", "mapping*", "02.bind*", "03.bind*", "04.bind*")
+_SAMPLE_INFO_NAMES = ("sample_info.txt", "group_info.txt", "sample_group.txt")
+
+# Expression matrix file patterns
+_COUNT_PATTERNS = ("gene_count_matrix*", "readcount*")
+_FPKM_PATTERNS = ("gene_fpkm_matrix*", "FPKM*")
+_TPM_PATTERNS = ("gene_tpm_matrix*", "TPM*")
+
+
+def _iglob_dirs(base: Path, patterns: tuple[str, ...]) -> List[Path]:
+    """Return directories under *base* whose names match any pattern (case-insensitive)."""
+    found: list[Path] = []
+    if not base.is_dir():
+        return found
+    for child in sorted(base.iterdir()):
+        if not child.is_dir():
+            continue
+        name_lower = child.name.lower()
+        for pat in patterns:
+            # fnmatch-style: translate glob pattern to regex
+            regex = re.compile(
+                re.escape(pat).replace(r"\*", ".*").replace(r"\?", "."),
+                re.IGNORECASE,
+            )
+            if regex.fullmatch(name_lower):
+                found.append(child)
+                break
+    return found
+
+
+def _iglob_files(base: Path, patterns: tuple[str, ...]) -> List[Path]:
+    """Return files under *base* whose names match any pattern (case-insensitive).
+
+    Searches only the immediate directory (non-recursive).
+    """
+    found: list[Path] = []
+    if not base.is_dir():
+        return found
+    for child in sorted(base.iterdir()):
+        if not child.is_file():
+            continue
+        name = child.name
+        for pat in patterns:
+            regex = re.compile(
+                re.escape(pat).replace(r"\*", ".*").replace(r"\?", "."),
+                re.IGNORECASE,
+            )
+            if regex.fullmatch(name):
+                found.append(child)
+                break
+    return found
+
+
+def _find_sample_info_file(base: Path) -> Optional[Path]:
+    """Walk *base* recursively looking for a sample/group info file."""
+    for root, _dirs, files in sorted_walk(base):
+        for fname in files:
+            if fname.lower() in {n.lower() for n in _SAMPLE_INFO_NAMES}:
+                return Path(root) / fname
+    return None
+
+
+def sorted_walk(base: Path):
+    """os.walk replacement using pathlib, yielding (root, dirs, files) with sorted names."""
+    import os
+
+    for root, dirs, files in os.walk(base):
+        dirs.sort()
+        files.sort()
+        yield root, dirs, files
+
+
+# ---------------------------------------------------------------------------
+# 1. discover_novogene_structure
+# ---------------------------------------------------------------------------
+
+
+def discover_novogene_structure(data_dir: str | Path) -> Dict[str, Any]:
+    """Walk *data_dir* recursively and catalogue Novogene delivery folders.
+
+    Returns a dict with keys:
+        quant_dir, deg_dir, enrichment_dir, qc_dir, mapping_dir
+            – first matching Path or None
+        sample_info_file – Path or None
+        discovered_files – flat list of every file found during the walk
+    """
+    data_dir = Path(data_dir).resolve()
+    if not data_dir.is_dir():
+        logger.error("Data directory does not exist: %s", data_dir)
+        return {
+            "quant_dir": None,
+            "deg_dir": None,
+            "enrichment_dir": None,
+            "qc_dir": None,
+            "mapping_dir": None,
+            "sample_info_file": None,
+            "discovered_files": [],
+        }
+
+    logger.info("Discovering Novogene structure under %s", data_dir)
+
+    # Collect every file for the inventory
+    discovered_files: list[Path] = []
+    for root, _dirs, files in sorted_walk(data_dir):
+        for f in files:
+            discovered_files.append(Path(root) / f)
+
+    # Top-level and one-level-deep search for standard folders
+    search_roots = [data_dir]
+    for child in sorted(data_dir.iterdir()):
+        if child.is_dir():
+            search_roots.append(child)
+
+    def _first_match(patterns: tuple[str, ...]) -> Optional[Path]:
+        for sr in search_roots:
+            matches = _iglob_dirs(sr, patterns)
+            if matches:
+                return matches[0]
+        return None
+
+    result: Dict[str, Any] = {
+        "quant_dir": _first_match(_QUANT_PATTERNS),
+        "deg_dir": _first_match(_DEG_PATTERNS),
+        "enrichment_dir": _first_match(_ENRICHMENT_PATTERNS),
+        "qc_dir": _first_match(_QC_PATTERNS),
+        "mapping_dir": _first_match(_MAPPING_PATTERNS),
+        "sample_info_file": _find_sample_info_file(data_dir),
+        "discovered_files": discovered_files,
+    }
+
+    for key in ("quant_dir", "deg_dir", "enrichment_dir", "qc_dir", "mapping_dir"):
+        val = result[key]
+        if val is not None:
+            logger.info("  %-20s -> %s", key, val)
+        else:
+            logger.warning("  %-20s -> not found", key)
+
+    if result["sample_info_file"]:
+        logger.info("  sample_info_file   -> %s", result["sample_info_file"])
+    else:
+        logger.warning("  sample_info_file   -> not found")
+
+    logger.info("  Total files discovered: %d", len(discovered_files))
+    return result
+
+
+# ---------------------------------------------------------------------------
+# 2. parse_expression_matrices
+# ---------------------------------------------------------------------------
+
+
+def parse_expression_matrices(quant_dir: str | Path | None) -> Dict[str, Optional[pd.DataFrame]]:
+    """Find and parse count, FPKM, and TPM matrices from *quant_dir*.
+
+    Returns dict with keys ``'counts'``, ``'fpkm'``, ``'tpm'``; any may be
+    ``None`` if the corresponding file was not found.
+    """
+    result: Dict[str, Optional[pd.DataFrame]] = {
+        "counts": None,
+        "fpkm": None,
+        "tpm": None,
+    }
+
+    if quant_dir is None:
+        logger.warning("No quantification directory provided; skipping expression matrix parsing.")
+        return result
+
+    quant_dir = Path(quant_dir).resolve()
+    if not quant_dir.is_dir():
+        logger.warning("Quantification directory does not exist: %s", quant_dir)
+        return result
+
+    # Search both the directory itself and one level of subdirectories
+    search_dirs = [quant_dir] + [
+        d for d in sorted(quant_dir.iterdir()) if d.is_dir()
+    ]
+
+    def _find_and_parse(patterns: tuple[str, ...], label: str) -> Optional[pd.DataFrame]:
+        for sd in search_dirs:
+            matches = _iglob_files(sd, patterns)
+            if matches:
+                fpath = matches[0]
+                logger.info("  Parsing %s matrix: %s", label, fpath)
+                try:
+                    df = read_table_flexible(fpath)
+                    if df is not None and not df.empty:
+                        logger.info("    -> %d genes x %d samples", df.shape[0], df.shape[1])
+                        return df
+                    logger.warning("    -> empty or None result for %s", fpath)
+                except Exception:
+                    logger.warning("    -> failed to parse %s", fpath, exc_info=True)
+                return None
+        logger.warning("  No %s matrix found in %s", label, quant_dir)
+        return None
+
+    result["counts"] = _find_and_parse(_COUNT_PATTERNS, "count")
+    result["fpkm"] = _find_and_parse(_FPKM_PATTERNS, "FPKM")
+    result["tpm"] = _find_and_parse(_TPM_PATTERNS, "TPM")
+
+    return result
+
+
+# ---------------------------------------------------------------------------
+# 3. parse_deg_results
+# ---------------------------------------------------------------------------
+
+
+def parse_deg_results(deg_dir: str | Path | None) -> Dict[str, pd.DataFrame]:
+    """Parse DEG tables from each comparison subdirectory in *deg_dir*.
+
+    Each immediate subdirectory is assumed to be a comparison
+    (e.g. ``GroupA_vs_GroupB``).  Within it we look for a file matching
+    ``*.DEG.xls`` (or similar DEG table patterns).
+
+    Returns ``{comparison_name: DataFrame}`` with standardised column names.
+    """
+    results: Dict[str, pd.DataFrame] = {}
+
+    if deg_dir is None:
+        logger.warning("No DEG directory provided; skipping DEG parsing.")
+        return results
+
+    deg_dir = Path(deg_dir).resolve()
+    if not deg_dir.is_dir():
+        logger.warning("DEG directory does not exist: %s", deg_dir)
+        return results
+
+    _DEG_FILE_PATTERNS = (
+        "*.DEG.xls",
+        "*.DEG_results*",
+        "*DEG*.xls",
+        "*deg*.xls",
+        "*diffexpr*",
+        "*diff_exp*",
+    )
+
+    for subdir in sorted(deg_dir.iterdir()):
+        if not subdir.is_dir():
+            continue
+        comparison = subdir.name
+        logger.info("  Processing DEG comparison: %s", comparison)
+
+        # Find the DEG table in this comparison folder
+        deg_files = _iglob_files(subdir, _DEG_FILE_PATTERNS)
+        if not deg_files:
+            # Also search one level deeper (some deliveries nest further)
+            for nested in sorted(subdir.iterdir()):
+                if nested.is_dir():
+                    deg_files = _iglob_files(nested, _DEG_FILE_PATTERNS)
+                    if deg_files:
+                        break
+
+        if not deg_files:
+            logger.warning("    No DEG table found for comparison %s", comparison)
+            continue
+
+        fpath = deg_files[0]
+        logger.info("    Parsing: %s", fpath)
+        try:
+            df = read_table_flexible(fpath)
+            if df is None or df.empty:
+                logger.warning("    -> empty or None result for %s", fpath)
+                continue
+            df = standardize_deg_columns(df)
+            results[comparison] = df
+            logger.info("    -> %d genes", len(df))
+        except Exception:
+            logger.warning("    -> failed to parse %s", fpath, exc_info=True)
+
+    logger.info("  Parsed %d DEG comparisons", len(results))
+    return results
+
+
+# ---------------------------------------------------------------------------
+# 4. parse_enrichment_results
+# ---------------------------------------------------------------------------
+
+
+def parse_enrichment_results(
+    enrichment_dir: str | Path | None,
+) -> Dict[str, Dict[str, pd.DataFrame]]:
+    """Parse enrichment results from comparison subdirectories.
+
+    Expected layout::
+
+        enrichment_dir/
+          CompA_vs_CompB/
+            GO/
+              *.xls  (enrichment table)
+            KEGG/
+              *.xls
+
+    Returns ``{comparison: {database: DataFrame}}``.
+    """
+    results: Dict[str, Dict[str, pd.DataFrame]] = {}
+
+    if enrichment_dir is None:
+        logger.warning("No enrichment directory provided; skipping enrichment parsing.")
+        return results
+
+    enrichment_dir = Path(enrichment_dir).resolve()
+    if not enrichment_dir.is_dir():
+        logger.warning("Enrichment directory does not exist: %s", enrichment_dir)
+        return results
+
+    _ENRICH_FILE_PATTERNS = (
+        "*.xls",
+        "*.xlsx",
+        "*.tsv",
+        "*.csv",
+        "*.txt",
+    )
+
+    _DB_DIR_PATTERNS = {
+        "GO": ("go*", "GO*"),
+        "KEGG": ("kegg*", "KEGG*"),
+    }
+
+    for subdir in sorted(enrichment_dir.iterdir()):
+        if not subdir.is_dir():
+            continue
+        comparison = subdir.name
+        logger.info("  Processing enrichment comparison: %s", comparison)
+        comp_results: Dict[str, pd.DataFrame] = {}
+
+        for db_name, db_patterns in _DB_DIR_PATTERNS.items():
+            db_dirs = _iglob_dirs(subdir, db_patterns)
+            if not db_dirs:
+                logger.warning("    No %s directory found for %s", db_name, comparison)
+                continue
+
+            db_dir = db_dirs[0]
+            enrich_files = _iglob_files(db_dir, _ENRICH_FILE_PATTERNS)
+            if not enrich_files:
+                logger.warning("    No enrichment files in %s", db_dir)
+                continue
+
+            # Pick the first (or largest) enrichment table
+            fpath = enrich_files[0]
+            logger.info("    Parsing %s enrichment: %s", db_name, fpath)
+            try:
+                df = read_table_flexible(fpath)
+                if df is not None and not df.empty:
+                    comp_results[db_name] = df
+                    logger.info("      -> %d terms", len(df))
+                else:
+                    logger.warning("      -> empty or None result for %s", fpath)
+            except Exception:
+                logger.warning("      -> failed to parse %s", fpath, exc_info=True)
+
+        if comp_results:
+            results[comparison] = comp_results
+
+    logger.info("  Parsed enrichment for %d comparisons", len(results))
+    return results
+
+
+# ---------------------------------------------------------------------------
+# 5. parse_sample_info
+# ---------------------------------------------------------------------------
+
+# Recognised column names (lowercase) for the sample identifier
+_SAMPLE_COL_ALIASES = {"sample_id", "sample", "sampleid", "sample_name", "samplename", "name"}
+# Recognised column names (lowercase) for the group/condition
+_GROUP_COL_ALIASES = {"group", "condition", "treatment", "group_id", "groupid", "class"}
+
+
+def parse_sample_info(file_path: str | Path | None) -> Optional[pd.DataFrame]:
+    """Parse a sample-to-group mapping file.
+
+    The file is expected to be tab-separated with a header row.  Column names
+    are matched case-insensitively against known aliases for *sample_id* and
+    *group*.
+
+    Returns a DataFrame with exactly two columns: ``sample_id``, ``group``,
+    or ``None`` if parsing fails.
+    """
+    if file_path is None:
+        return None
+
+    file_path = Path(file_path).resolve()
+    if not file_path.is_file():
+        logger.warning("Sample info file does not exist: %s", file_path)
+        return None
+
+    logger.info("Parsing sample info: %s", file_path)
+    try:
+        df = read_table_flexible(file_path)
+    except Exception:
+        logger.warning("Failed to read sample info file: %s", file_path, exc_info=True)
+        return None
+
+    if df is None or df.empty:
+        logger.warning("Sample info file is empty: %s", file_path)
+        return None
+
+    cols_lower = {c.lower().strip(): c for c in df.columns}
+
+    sample_col: Optional[str] = None
+    group_col: Optional[str] = None
+
+    for alias in _SAMPLE_COL_ALIASES:
+        if alias in cols_lower:
+            sample_col = cols_lower[alias]
+            break
+
+    for alias in _GROUP_COL_ALIASES:
+        if alias in cols_lower:
+            group_col = cols_lower[alias]
+            break
+
+    # Fallback: if only two columns, assume first=sample, second=group
+    if sample_col is None and group_col is None and len(df.columns) == 2:
+        sample_col, group_col = df.columns[0], df.columns[1]
+        logger.info("  Falling back to positional columns: sample=%s, group=%s", sample_col, group_col)
+    elif sample_col is None or group_col is None:
+        logger.warning(
+            "Could not identify sample/group columns in %s. Columns: %s",
+            file_path,
+            list(df.columns),
+        )
+        return None
+
+    result = df[[sample_col, group_col]].copy()
+    result.columns = ["sample_id", "group"]
+    result["sample_id"] = result["sample_id"].astype(str).str.strip()
+    result["group"] = result["group"].astype(str).str.strip()
+
+    logger.info("  -> %d samples in %d groups", len(result), result["group"].nunique())
+    return result
+
+
+# ---------------------------------------------------------------------------
+# 6. infer_groups_from_comparisons
+# ---------------------------------------------------------------------------
+
+
+def infer_groups_from_comparisons(deg_results: Dict[str, pd.DataFrame]) -> Dict[str, List[str]]:
+    """Extract group names from DEG comparison folder names.
+
+    Splits each comparison name on ``'_vs_'`` (case-insensitive) and collects
+    unique group names.
+
+    Returns ``{"groups": [group1, group2, ...], "comparisons": [comp1, ...]}``.
+    """
+    groups: set[str] = set()
+    comparisons: list[str] = []
+
+    for comp_name in sorted(deg_results.keys()):
+        comparisons.append(comp_name)
+        parts = re.split(r"_vs_", comp_name, flags=re.IGNORECASE)
+        for part in parts:
+            stripped = part.strip()
+            if stripped:
+                groups.add(stripped)
+
+    result = {
+        "groups": sorted(groups),
+        "comparisons": comparisons,
+    }
+    logger.info("Inferred %d groups from %d comparisons: %s", len(result["groups"]), len(comparisons), result["groups"])
+    return result
+
+
+# ---------------------------------------------------------------------------
+# 7. ingest_all  (main entry point)
+# ---------------------------------------------------------------------------
+
+
+def ingest_all(data_dir: str | Path, config: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """Main ingestion entry point.
+
+    Parameters
+    ----------
+    data_dir : str or Path
+        Root directory of a Novogene delivery.
+    config : dict, optional
+        Optional configuration overrides (currently unused but reserved for
+        future options such as custom glob patterns or column mappings).
+
+    Returns
+    -------
+    dict
+        Keys:
+            structure    – output of discover_novogene_structure
+            expression   – output of parse_expression_matrices
+            deg          – output of parse_deg_results
+            enrichment   – output of parse_enrichment_results
+            sample_info  – DataFrame or None
+            groups       – inferred groups dict (from sample_info or comparisons)
+    """
+    config = config or {}
+    data_dir = Path(data_dir).resolve()
+    logger.info("=" * 60)
+    logger.info("Starting NovoView ingestion: %s", data_dir)
+    logger.info("=" * 60)
+
+    # Step 1 – discover directory structure
+    structure = discover_novogene_structure(data_dir)
+
+    # Step 2 – parse expression matrices
+    logger.info("--- Expression matrices ---")
+    expression = parse_expression_matrices(structure["quant_dir"])
+
+    # Step 3 – parse DEG results
+    logger.info("--- DEG results ---")
+    deg = parse_deg_results(structure["deg_dir"])
+
+    # Step 4 – parse enrichment results
+    logger.info("--- Enrichment results ---")
+    enrichment = parse_enrichment_results(structure["enrichment_dir"])
+
+    # Step 5 – parse sample info
+    logger.info("--- Sample info ---")
+    sample_info = parse_sample_info(structure["sample_info_file"])
+
+    # Step 6 – infer groups
+    if sample_info is not None and not sample_info.empty:
+        groups: Dict[str, Any] = {
+            "groups": sorted(sample_info["group"].unique().tolist()),
+            "comparisons": sorted(deg.keys()),
+        }
+        logger.info("Groups from sample info: %s", groups["groups"])
+    elif deg:
+        groups = infer_groups_from_comparisons(deg)
+    else:
+        groups = {"groups": [], "comparisons": []}
+        logger.warning("No sample info and no DEG results; cannot determine groups.")
+
+    # Summary
+    logger.info("=" * 60)
+    logger.info("Ingestion summary:")
+    logger.info("  Expression matrices : counts=%s, fpkm=%s, tpm=%s",
+                expression["counts"] is not None,
+                expression["fpkm"] is not None,
+                expression["tpm"] is not None)
+    logger.info("  DEG comparisons     : %d", len(deg))
+    logger.info("  Enrichment results  : %d comparisons", len(enrichment))
+    logger.info("  Sample info         : %s", "loaded" if sample_info is not None else "not available")
+    logger.info("  Groups              : %s", groups.get("groups", []))
+    logger.info("  Total files found   : %d", len(structure["discovered_files"]))
+    logger.info("=" * 60)
+
+    return {
+        "structure": structure,
+        "expression": expression,
+        "deg": deg,
+        "enrichment": enrichment,
+        "sample_info": sample_info,
+        "groups": groups,
+    }

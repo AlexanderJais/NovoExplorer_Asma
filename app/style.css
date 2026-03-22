@@ -1,0 +1,393 @@
+/* ===================================================================
+   NovoView – Professional Streamlit Theme
+   ===================================================================
+   Typography: Helvetica / Arial / sans-serif
+   Primary accent: #0072B2  (Wong palette blue)
+   Text colour:    #2D2D2D  (dark charcoal)
+   =================================================================== */
+
+/* -----------------------------------------------------------------
+   1. Global typography & background
+   ----------------------------------------------------------------- */
+html, body, [class*="css"] {
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    color: #2D2D2D;
+}
+
+/* -----------------------------------------------------------------
+   2. Remove default Streamlit branding / footer
+   ----------------------------------------------------------------- */
+#MainMenu {visibility: hidden;}
+footer {visibility: hidden;}
+header {visibility: hidden;}
+
+/* -----------------------------------------------------------------
+   3. Sidebar styling
+   ----------------------------------------------------------------- */
+[data-testid="stSidebar"] {
+    background-color: #F7F7F5;
+    border-right: 1px solid #E5E5E5;
+    padding-top: 1.25rem;
+}
+
+[data-testid="stSidebar"] > div:first-child {
+    padding-top: 0.5rem;
+}
+
+[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] h1 {
+    color: #0072B2;
+    font-size: 1.4rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    padding-bottom: 0.25rem;
+    border-bottom: 2px solid #0072B2;
+    margin-bottom: 1rem;
+}
+
+[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] h2,
+[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] h3 {
+    color: #2D2D2D;
+    font-size: 0.95rem;
+    font-weight: 600;
+    margin-top: 1.2rem;
+    margin-bottom: 0.5rem;
+}
+
+[data-testid="stSidebar"] .stSelectbox label,
+[data-testid="stSidebar"] .stSlider label,
+[data-testid="stSidebar"] .stMultiSelect label {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: #4A4A4A;
+}
+
+/* Sidebar page links */
+[data-testid="stSidebar"] a[data-testid="stPageLink-NavLink"] {
+    font-size: 0.88rem;
+    color: #2D2D2D;
+    padding: 0.35rem 0.6rem;
+    border-radius: 6px;
+    margin-bottom: 0.15rem;
+    transition: background-color 0.12s ease;
+}
+
+[data-testid="stSidebar"] a[data-testid="stPageLink-NavLink"]:hover {
+    background-color: rgba(0, 114, 178, 0.08);
+    color: #0072B2;
+    text-decoration: none;
+}
+
+[data-testid="stSidebar"] a[data-testid="stPageLink-NavLink"][aria-current="page"] {
+    background-color: rgba(0, 114, 178, 0.12);
+    color: #0072B2;
+    font-weight: 600;
+}
+
+/* -----------------------------------------------------------------
+   4. Card / container styling
+   ----------------------------------------------------------------- */
+[data-testid="stExpander"],
+[data-testid="stVerticalBlock"] > div[data-testid="stHorizontalBlock"],
+div[data-testid="column"] > div {
+    border-radius: 8px;
+}
+
+/* Explicit card class for st.container with border=True */
+[data-testid="stVerticalBlockBorderWrapper"] {
+    border: 1px solid #E5E5E5;
+    border-radius: 8px;
+    padding: 1.25rem 1.5rem;
+    background-color: #FFFFFF;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    margin-bottom: 1.25rem;
+}
+
+/* Metric cards */
+[data-testid="stMetric"] {
+    background-color: #FFFFFF;
+    border: 1px solid #E5E5E5;
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+}
+
+[data-testid="stMetricLabel"] {
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: #6B6B6B;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+[data-testid="stMetricValue"] {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: #0072B2;
+}
+
+/* -----------------------------------------------------------------
+   5. Table styling
+   ----------------------------------------------------------------- */
+[data-testid="stDataFrame"] table,
+[data-testid="stTable"] table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+}
+
+[data-testid="stDataFrame"] thead th,
+[data-testid="stTable"] thead th {
+    background-color: #F7F7F5;
+    color: #2D2D2D;
+    font-weight: 600;
+    text-align: left;
+    padding: 0.6rem 0.75rem;
+    border-bottom: 2px solid #D4D4D4;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+[data-testid="stDataFrame"] tbody td,
+[data-testid="stTable"] tbody td {
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid #EEEEEE;
+}
+
+[data-testid="stDataFrame"] tbody tr:nth-child(even),
+[data-testid="stTable"] tbody tr:nth-child(even) {
+    background-color: #FAFAFA;
+}
+
+[data-testid="stDataFrame"] tbody tr:hover,
+[data-testid="stTable"] tbody tr:hover {
+    background-color: #F0F7FB;
+}
+
+/* -----------------------------------------------------------------
+   6. Buttons
+   ----------------------------------------------------------------- */
+.stButton > button,
+.stDownloadButton > button {
+    background-color: #0072B2;
+    color: #FFFFFF;
+    border: none;
+    border-radius: 6px;
+    padding: 0.45rem 1.1rem;
+    font-weight: 600;
+    font-size: 0.85rem;
+    letter-spacing: 0.01em;
+    transition: background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.stButton > button:hover,
+.stDownloadButton > button:hover {
+    background-color: #005A8C;
+    box-shadow: 0 2px 6px rgba(0, 114, 178, 0.25);
+    color: #FFFFFF;
+}
+
+.stButton > button:active,
+.stDownloadButton > button:active {
+    background-color: #004466;
+}
+
+/* Download button icon spacing */
+.stDownloadButton > button::before {
+    margin-right: 0.3rem;
+}
+
+/* Secondary/outline button variant (use with custom class) */
+.stButton > button[kind="secondary"] {
+    background-color: transparent;
+    color: #0072B2;
+    border: 1.5px solid #0072B2;
+}
+
+.stButton > button[kind="secondary"]:hover {
+    background-color: rgba(0, 114, 178, 0.06);
+    box-shadow: none;
+}
+
+/* -----------------------------------------------------------------
+   7. Tabs
+   ----------------------------------------------------------------- */
+.stTabs [data-baseweb="tab-list"] {
+    gap: 0.25rem;
+    border-bottom: 2px solid #E5E5E5;
+}
+
+.stTabs [data-baseweb="tab"] {
+    padding: 0.6rem 1.1rem;
+    font-weight: 500;
+    font-size: 0.9rem;
+    color: #6B6B6B;
+    border-radius: 6px 6px 0 0;
+    border: none;
+}
+
+.stTabs [aria-selected="true"] {
+    color: #0072B2;
+    font-weight: 600;
+    border-bottom: 2px solid #0072B2;
+    background-color: transparent;
+}
+
+/* -----------------------------------------------------------------
+   8. Expanders
+   ----------------------------------------------------------------- */
+[data-testid="stExpander"] {
+    border: 1px solid #E5E5E5;
+    border-radius: 8px;
+    margin-bottom: 0.75rem;
+}
+
+[data-testid="stExpander"] summary {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: #2D2D2D;
+}
+
+/* -----------------------------------------------------------------
+   9. Spacing and layout
+   ----------------------------------------------------------------- */
+.block-container {
+    padding-top: 2rem;
+    padding-bottom: 2.5rem;
+    max-width: 1200px;
+}
+
+[data-testid="stVerticalBlock"] > div {
+    margin-bottom: 0.5rem;
+}
+
+/* Section headers */
+[data-testid="stMarkdownContainer"] h1 {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: #2D2D2D;
+    margin-bottom: 0.5rem;
+}
+
+[data-testid="stMarkdownContainer"] h2 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #2D2D2D;
+    margin-top: 1.5rem;
+    margin-bottom: 0.75rem;
+}
+
+[data-testid="stMarkdownContainer"] h3 {
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: #3D3D3D;
+    margin-top: 1.25rem;
+}
+
+/* Section dividers */
+hr {
+    border: none;
+    border-top: 1px solid #E5E5E5;
+    margin: 2rem 0;
+}
+
+/* Caption text */
+[data-testid="stCaptionContainer"] {
+    font-size: 0.82rem;
+    color: #7A7A7A;
+    line-height: 1.45;
+}
+
+/* -----------------------------------------------------------------
+   10. Selectbox / slider accent
+   ----------------------------------------------------------------- */
+[data-baseweb="select"] [data-baseweb="tag"] {
+    background-color: #0072B2;
+    color: #FFFFFF;
+}
+
+.stSlider [data-testid="stThumbValue"] {
+    color: #0072B2;
+    font-weight: 600;
+}
+
+/* Slider track accent */
+.stSlider [role="slider"] {
+    background-color: #0072B2;
+}
+
+/* -----------------------------------------------------------------
+   11. Plotly chart containers
+   ----------------------------------------------------------------- */
+[data-testid="stPlotlyChart"] {
+    border: 1px solid #E5E5E5;
+    border-radius: 8px;
+    padding: 0.5rem;
+    background-color: #FFFFFF;
+    margin-bottom: 1rem;
+}
+
+/* -----------------------------------------------------------------
+   12. Info / warning / error boxes
+   ----------------------------------------------------------------- */
+[data-testid="stAlert"] {
+    border-radius: 8px;
+    font-size: 0.85rem;
+}
+
+/* -----------------------------------------------------------------
+   13. Inline HTML tables (used in multi-condition page)
+   ----------------------------------------------------------------- */
+.block-container table {
+    border-collapse: collapse;
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-size: 0.85rem;
+    color: #2D2D2D;
+}
+
+.block-container table thead th {
+    background-color: #F7F7F5;
+    font-weight: 600;
+    border-bottom: 2px solid #D4D4D4;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+.block-container table tbody tr:nth-child(even) {
+    background-color: #FAFAFA;
+}
+
+.block-container table tbody tr:hover {
+    background-color: #F0F7FB;
+}
+
+/* -----------------------------------------------------------------
+   14. Multiselect pills
+   ----------------------------------------------------------------- */
+[data-baseweb="tag"] {
+    border-radius: 4px;
+    font-size: 0.8rem;
+}
+
+/* -----------------------------------------------------------------
+   15. Scrollbar styling
+   ----------------------------------------------------------------- */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: #F5F5F5;
+    border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #CCCCCC;
+    border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #AAAAAA;
+}
