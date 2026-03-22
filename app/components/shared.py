@@ -223,3 +223,36 @@ def table_height(n_rows: int, max_height: int = 400) -> int:
         Height in pixels, capped at *max_height*.
     """
     return min(max_height, 35 * n_rows + 38)
+
+
+# ---------------------------------------------------------------------------
+# Empty state & stat badge
+# ---------------------------------------------------------------------------
+
+
+def render_empty_state(message: str, suggestion: str | None = None, icon: str = "info") -> None:
+    """Render a styled empty-state placeholder."""
+    _ICONS = {"info": "ℹ️", "search": "🔍", "chart": "📊", "gene": "🧬", "warning": "⚠️"}
+    icon_char = _ICONS.get(icon, icon)
+    suggestion_html = ""
+    if suggestion:
+        suggestion_html = f'<div style="font-size:0.82rem; color:#999; margin-top:0.5rem;">{suggestion}</div>'
+    st.markdown(
+        f"""<div style="text-align:center; padding:2.5rem 1rem; color:#888;">
+            <div style="font-size:2.5rem; margin-bottom:0.5rem;">{icon_char}</div>
+            <div style="font-size:0.95rem; font-weight:500; color:#666;">{message}</div>
+            {suggestion_html}
+        </div>""",
+        unsafe_allow_html=True,
+    )
+
+
+def render_stat_badge(label: str, value: str | int, color: str = "#0072B2") -> None:
+    """Render an inline stat badge."""
+    st.markdown(
+        f'<span style="display:inline-block; background:{color}15; color:{color}; '
+        f'border:1px solid {color}40; border-radius:6px; padding:0.2rem 0.6rem; '
+        f'font-size:0.78rem; font-weight:600; margin-right:0.4rem;">'
+        f'{label}: {value}</span>',
+        unsafe_allow_html=True,
+    )

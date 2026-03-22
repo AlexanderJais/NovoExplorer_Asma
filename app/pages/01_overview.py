@@ -38,6 +38,7 @@ from app.components.shared import (  # noqa: E402
     get_sample_groups,
     fmt_count,
     table_height,
+    render_empty_state,
 )
 
 # ---------------------------------------------------------------------------
@@ -116,6 +117,13 @@ def main() -> None:
         "dimensionality reduction, sample correlation, and differential expression overview."
     )
 
+    # ------------------------------------------------------------------
+    # Sidebar filters
+    # ------------------------------------------------------------------
+    with st.sidebar:
+        st.header("Filters")
+        padj_thresh, log2fc_thresh = threshold_sliders(key_prefix="overview_deg_")
+
     data_path = _get_data_path()
     if not check_data_path(data_path):
         return
@@ -164,94 +172,98 @@ def main() -> None:
     )
 
     # ------------------------------------------------------------------
-    # Middle section: PCA / UMAP + Correlation heatmap
+    # Tabbed sections
     # ------------------------------------------------------------------
-    st.divider()
-    st.header("Dimensionality Reduction & Sample Correlation")
-    left_col, right_col = st.columns(2)
+    tab_embed, tab_heatmap, tab_deg = st.tabs([
+        "\U0001f4ca Embeddings & Correlation",
+        "\U0001f9ec Top Variable Genes",
+        "\U0001f4cb DEG Summary",
+    ])
 
-    with left_col:
-        pca_coords = embeddings.get("pca_coordinates")
-        pca_variance = embeddings.get("pca_variance")
-        umap_coords = embeddings.get("umap")
+    # ------------------------------------------------------------------
+    # Tab 1: PCA / UMAP + Correlation heatmap
+    # ------------------------------------------------------------------
+    with tab_embed:
+        left_col, right_col = st.columns(2)
 
-        available_methods: list[str] = []
-        if pca_coords is not None:
-            available_methods.append("PCA")
-        if umap_coords is not None:
-            available_methods.append("UMAP")
+        with left_col:
+            pca_coords = embeddings.get("pca_coordinates")
+            pca_variance = embeddings.get("pca_variance")
+            umap_coords = embeddings.get("umap")
 
-        if available_methods:
-            method = st.selectbox(
-                "Embedding method",
-                options=available_methods,
-                key="overview_embedding_method",
-                help=(
-                    "PCA shows major axes of variation (linear). "
-                    "UMAP reveals local sample clusters (non-linear). "
-                    "Both help visualize how samples relate to each other."
-                ),
-            )
+            available_methods: list[str] = []
+            if pca_coords is not None:
+                available_methods.append("PCA")
+            if umap_coords is not None:
+                available_methods.append("UMAP")
 
-            sample_names = (
-                expression_df.columns.tolist() if expression_df is not None else []
-            )
-            sample_groups = _get_sample_groups(samples_meta, sample_names)
-
-            if method == "PCA" and pca_coords is not None:
-                # Prepare variance array
-                var_array = None
-                if pca_variance is not None:
-                    if isinstance(pca_variance, pd.DataFrame):
-                        var_array = pca_variance.values.flatten()
-                    else:
-                        var_array = np.asarray(pca_variance)
-
-                fig = create_pca_scatter(
-                    pca_coords,
-                    variance_explained=var_array if var_array is not None else [0, 0],
-                    sample_groups=sample_groups,
-                    title="PCA",
+            if available_methods:
+                method = st.selectbox(
+                    "Embedding method",
+                    options=available_methods,
+                    key="overview_embedding_method",
+                    help=(
+                        "PCA shows major axes of variation (linear). "
+                        "UMAP reveals local sample clusters (non-linear). "
+                        "Both help visualize how samples relate to each other."
+                    ),
                 )
-                st.plotly_chart(fig, use_container_width=True)
-                download_figure_buttons(fig, "pca_scatter")
 
-            elif method == "UMAP" and umap_coords is not None:
-                fig = create_umap_scatter(
-                    umap_coords,
-                    sample_groups=sample_groups,
-                    title="UMAP",
+                sample_names = (
+                    expression_df.columns.tolist() if expression_df is not None else []
                 )
-                st.plotly_chart(fig, use_container_width=True)
-                download_figure_buttons(fig, "umap_scatter")
-        else:
-            st.info("No PCA or UMAP embeddings available in the results file.")
+                sample_groups = _get_sample_groups(samples_meta, sample_names)
 
-    with right_col:
-        corr_df = None
-        if qc_data is not None:
-            corr_df = qc_data.get("correlation")
+                if method == "PCA" and pca_coords is not None:
+                    # Prepare variance array
+                    var_array = None
+                    if pca_variance is not None:
+                        if isinstance(pca_variance, pd.DataFrame):
+                            var_array = pca_variance.values.flatten()
+                        else:
+                            var_array = np.asarray(pca_variance)
 
-        # Fallback: compute correlation from top 1000 variable genes (fast)
-        if corr_df is None and expression_df is not None:
-            _top_var = expression_df.var(axis=1).nlargest(min(1000, len(expression_df)))
-            corr_df = expression_df.loc[_top_var.index].corr()
+                    fig = create_pca_scatter(
+                        pca_coords,
+                        variance_explained=var_array if var_array is not None else [0, 0],
+                        sample_groups=sample_groups,
+                        title="PCA",
+                    )
+                    st.plotly_chart(fig, use_container_width=True)
+                    download_figure_buttons(fig, "pca_scatter")
 
-        if corr_df is not None:
-            fig_corr = _create_correlation_heatmap(corr_df)
-            st.plotly_chart(fig_corr, use_container_width=True)
-            download_figure_buttons(fig_corr, "sample_correlation")
-        else:
-            st.info("No correlation data available.")
+                elif method == "UMAP" and umap_coords is not None:
+                    fig = create_umap_scatter(
+                        umap_coords,
+                        sample_groups=sample_groups,
+                        title="UMAP",
+                    )
+                    st.plotly_chart(fig, use_container_width=True)
+                    download_figure_buttons(fig, "umap_scatter")
+            else:
+                render_empty_state("No embeddings available", "Run the pipeline with PCA/UMAP enabled to generate embeddings.", "chart")
+
+        with right_col:
+            corr_df = None
+            if qc_data is not None:
+                corr_df = qc_data.get("correlation")
+
+            # Fallback: compute correlation from top 1000 variable genes (fast)
+            if corr_df is None and expression_df is not None:
+                _top_var = expression_df.var(axis=1).nlargest(min(1000, len(expression_df)))
+                corr_df = expression_df.loc[_top_var.index].corr()
+
+            if corr_df is not None:
+                fig_corr = _create_correlation_heatmap(corr_df)
+                st.plotly_chart(fig_corr, use_container_width=True)
+                download_figure_buttons(fig_corr, "sample_correlation")
+            else:
+                render_empty_state("No correlation data available", "Correlation is computed from the expression matrix.", "chart")
 
     # ------------------------------------------------------------------
-    # Bottom section: top variable gene heatmap + DEG summary table
+    # Tab 2: Top variable gene heatmap
     # ------------------------------------------------------------------
-    st.divider()
-    st.header("Top Variable Genes & DEG Summary")
-    bottom_left, bottom_right = st.columns(2)
-
-    with bottom_left:
+    with tab_heatmap:
         st.subheader("Top 50 Most Variable Genes")
         if expression_df is not None:
             sample_names_hm = expression_df.columns.tolist()
@@ -267,15 +279,14 @@ def main() -> None:
             st.plotly_chart(fig_hm, use_container_width=True)
             download_figure_buttons(fig_hm, "top50_variable_genes")
         else:
-            st.info("No expression data available.")
+            render_empty_state("No expression data available", "Check that the pipeline produced an expression matrix.", "gene")
 
-    with bottom_right:
+    # ------------------------------------------------------------------
+    # Tab 3: DEG summary table
+    # ------------------------------------------------------------------
+    with tab_deg:
         st.subheader("Per-Comparison DEG Counts")
         if deg_all:
-            padj_thresh, log2fc_thresh = threshold_sliders(
-                key_prefix="overview_deg_",
-            )
-
             rows = []
             for comp_name, df in sorted(deg_all.items()):
                 if "padj" not in df.columns or "log2fc" not in df.columns:
@@ -300,6 +311,13 @@ def main() -> None:
                 )
 
             if rows:
+                total_up = sum(r["Up"] for r in rows)
+                total_down = sum(r["Down"] for r in rows)
+                badge_cols = st.columns(3)
+                badge_cols[0].metric("Total DEGs", fmt_count(sum(r["Total DEGs"] for r in rows)))
+                badge_cols[1].metric("Up-regulated", fmt_count(total_up), delta=None)
+                badge_cols[2].metric("Down-regulated", fmt_count(total_down), delta=None)
+
                 summary_df = pd.DataFrame(rows)
                 st.dataframe(
                     summary_df,
@@ -310,7 +328,7 @@ def main() -> None:
             else:
                 st.info("No DEG results contain the required columns.")
         else:
-            st.info("No DEG results available.")
+            render_empty_state("No DEG results available", "Run differential expression analysis first.", "search")
 
 
 # ---------------------------------------------------------------------------

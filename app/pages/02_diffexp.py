@@ -58,6 +58,7 @@ from app.components.shared import (  # noqa: E402
     fmt_pvalue,
     fmt_fc,
     table_height,
+    render_empty_state,
 )
 
 # ---------------------------------------------------------------------------
@@ -167,7 +168,7 @@ def main() -> None:
     samples_meta = metadata.get("samples")
 
     if not deg_all:
-        st.warning("No differential expression results found in the results file.")
+        render_empty_state("No differential expression results found", "Run the pipeline with DEG analysis to generate results.", "search")
         return
 
     # ------------------------------------------------------------------
@@ -229,6 +230,50 @@ def main() -> None:
     st.plotly_chart(fig_volcano, use_container_width=True)
     download_figure_buttons(fig_volcano, f"volcano_{selected_comparison}")
 
+    # ---- Searched gene spotlight ----
+    if searched_gene:
+        st.divider()
+        st.subheader(f"Gene Spotlight: {searched_gene}")
+
+        # Gene stats row
+        if "gene_name" in deg_df.columns:
+            gene_row = deg_df[deg_df["gene_name"] == searched_gene]
+        else:
+            gene_row = (
+                deg_df.loc[[searched_gene]]
+                if searched_gene in deg_df.index
+                else pd.DataFrame()
+            )
+
+        if not gene_row.empty:
+            row = gene_row.iloc[0]
+            stat_cols = st.columns(4)
+            if "log2fc" in row.index:
+                stat_cols[0].metric("log2 Fold Change", fmt_fc(row["log2fc"]))
+            if "padj" in row.index:
+                stat_cols[1].metric("Adjusted p-value", fmt_pvalue(row["padj"]))
+            if "basemean" in row.index:
+                stat_cols[2].metric("Base Mean", f"{row['basemean']:.1f}")
+            elif "baseMean" in row.index:
+                stat_cols[2].metric("Base Mean", f"{row['baseMean']:.1f}")
+            with stat_cols[3]:
+                if st.button(
+                    f"+ Add to basket",
+                    key=f"de_add_searched_{searched_gene}",
+                    help=f"Add {searched_gene} to gene basket",
+                ):
+                    add_to_basket(searched_gene)
+                    st.rerun()
+        else:
+            st.info(f"**{searched_gene}** is not in the DEG results for this comparison.")
+
+        # Expression bar chart
+        fig_expr = _create_expression_bar(searched_gene, expression_df, samples_meta)
+        if fig_expr is not None:
+            st.plotly_chart(fig_expr, use_container_width=True)
+        else:
+            st.caption(f"Expression data not available for {searched_gene}.")
+
     # ---- MA plot (collapsible) ----
     with st.expander("MA Plot", expanded=False):
         # Use the imported create_ma_plot_plotly from plotting.ma_plot
@@ -284,6 +329,15 @@ def main() -> None:
     if "padj" in table_df.columns:
         table_df = table_df.sort_values("padj", ascending=True)
 
+    # DEG count badges
+    if not table_df.empty and "regulation" in table_df.columns:
+        n_up = int((table_df["regulation"] == "up").sum())
+        n_down = int((table_df["regulation"] == "down").sum())
+        badge_cols = st.columns(3)
+        badge_cols[0].metric("Significant", len(table_df))
+        badge_cols[1].metric("Up-regulated", n_up)
+        badge_cols[2].metric("Down-regulated", n_down)
+
     # Regulation filter
     if "regulation" in table_df.columns:
         reg_options = ["all", "up", "down"]
@@ -301,6 +355,12 @@ def main() -> None:
         f"{len(table_df)} significant genes at padj < {padj_thresh}, "
         f"|log2FC| > {log2fc_thresh}"
     )
+
+    if len(table_df) < 10 and len(table_df) > 0:
+        st.warning(
+            f"Only {len(table_df)} genes pass the current thresholds. "
+            "Consider relaxing the significance criteria in the sidebar."
+        )
 
     # Download CSV
     download_csv_button(
@@ -340,53 +400,6 @@ def main() -> None:
             f"No genes meet the current thresholds (padj < {padj_thresh}, "
             f"|log2FC| > {log2fc_thresh}). Try relaxing the thresholds in the sidebar."
         )
-
-    # ------------------------------------------------------------------
-    # Expression profile expander when a gene is searched
-    # ------------------------------------------------------------------
-    if searched_gene:
-        st.divider()
-        with st.expander(f"Expression profile: {searched_gene}", expanded=True):
-            fig_expr = _create_expression_bar(
-                searched_gene, expression_df, samples_meta
-            )
-            if fig_expr is not None:
-                st.plotly_chart(fig_expr, use_container_width=True)
-            else:
-                st.warning(
-                    f"Gene '{searched_gene}' not found in expression matrix. "
-                    "Check the spelling or use the Gene Search page to browse available genes."
-                )
-
-            # Show DEG stats for the searched gene
-            if "gene_name" in deg_df.columns:
-                gene_row = deg_df[deg_df["gene_name"] == searched_gene]
-            else:
-                gene_row = (
-                    deg_df.loc[[searched_gene]]
-                    if searched_gene in deg_df.index
-                    else pd.DataFrame()
-                )
-
-            if not gene_row.empty:
-                stat_cols = st.columns(3)
-                row = gene_row.iloc[0]
-                if "log2fc" in row.index:
-                    stat_cols[0].metric("log2 Fold Change", fmt_fc(row["log2fc"]))
-                if "padj" in row.index:
-                    stat_cols[1].metric("Adjusted p-value", fmt_pvalue(row["padj"]))
-                if "basemean" in row.index:
-                    stat_cols[2].metric("Base Mean", f"{row['basemean']:.1f}")
-                elif "baseMean" in row.index:
-                    stat_cols[2].metric("Base Mean", f"{row['baseMean']:.1f}")
-
-            # Add to basket button
-            if st.button(
-                f"Add {searched_gene} to basket",
-                key=f"de_add_searched_{searched_gene}",
-            ):
-                add_to_basket(searched_gene)
-                st.rerun()
 
 
 # ---------------------------------------------------------------------------

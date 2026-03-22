@@ -34,7 +34,7 @@ from plotting.theme import (
 )
 from app.components.filters import threshold_sliders
 from app.components.download import download_csv_button
-from app.components.shared import get_data_path, check_data_path, fmt_count
+from app.components.shared import get_data_path, check_data_path, fmt_count, render_empty_state
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -446,204 +446,211 @@ def main() -> None:
 
     sig_genes = _get_sig_genes(deg_all, padj_thresh, log2fc_thresh)
 
+    tab_overlap, tab_concordance, tab_summary = st.tabs([
+        "\U0001f517 DEG Overlap",
+        "\U0001f4c8 Fold-Change Concordance",
+        "\U0001f4cb Gene Summary",
+    ])
+
     # ==================================================================
-    # Section 1: DEG Overlap
+    # Tab 1: DEG Overlap
     # ==================================================================
-    st.header("DEG Overlap")
-    st.caption(
-        "Intersection of significant DEGs across comparisons. "
-        "Each bar represents a unique combination of comparisons and shows "
-        "the number of genes significant in exactly that combination."
-    )
-
-    if sig_genes:
-        upset_df = _compute_upset_data(sig_genes)
-
-        if not upset_df.empty:
-            fig_upset = _create_upset_plot(upset_df)
-            st.plotly_chart(fig_upset, use_container_width=True, key="upset_plot")
-
-            # Intersection selector
-            st.markdown("#### Genes in Selected Intersection")
-            intersection_options = upset_df["intersection"].tolist()
-            selected_intersection = st.selectbox(
-                "Select intersection",
-                options=intersection_options,
-                key="upset_intersection",
-            )
-
-            if selected_intersection:
-                filtered = upset_df[upset_df["intersection"] == selected_intersection]
-                if filtered.empty:
-                    st.warning("Selected intersection no longer available.")
-                    return
-                selected_row = filtered.iloc[0]
-                gene_list = sorted(selected_row["genes"])
-                st.write(f"**{len(gene_list)} genes** in: {selected_intersection}")
-
-                gene_df = pd.DataFrame({"gene": gene_list})
-                st.dataframe(gene_df, use_container_width=True, hide_index=True, height=300)
-                download_csv_button(gene_df, f"intersection_genes_{selected_intersection}.csv")
-        else:
-            st.info("No exclusive intersections found at the current thresholds.")
-    else:
-        st.info(
-            f"No significant DEGs at the current thresholds (padj < {padj_thresh}, "
-            f"|log2FC| > {log2fc_thresh}). Try relaxing the thresholds in the sidebar."
+    with tab_overlap:
+        st.caption(
+            "Intersection of significant DEGs across comparisons. "
+            "Each bar represents a unique combination of comparisons and shows "
+            "the number of genes significant in exactly that combination."
         )
 
-    st.divider()
+        if sig_genes:
+            total_sig = sum(len(genes) for genes in sig_genes.values())
+            shared = len(set.intersection(*[s for s in sig_genes.values() if s]) if len(sig_genes) > 1 else set())
+            badge_cols = st.columns(3)
+            badge_cols[0].metric("Total Unique DEGs", fmt_count(len(set.union(*sig_genes.values()))))
+            badge_cols[1].metric("Comparisons", len(sig_genes))
+            badge_cols[2].metric("Shared Across All", fmt_count(shared))
 
-    # ==================================================================
-    # Section 2: Fold-Change Concordance
-    # ==================================================================
-    st.header("Fold-Change Concordance")
-    st.caption(
-        "Compare log2 fold-changes between two comparisons. "
-        "Concordant genes are colored by direction (vermilion = up, blue = down); "
-        "discordant genes are gray."
-    )
+            upset_df = _compute_upset_data(sig_genes)
 
-    col_a, col_b = st.columns(2)
-    with col_a:
-        comp_a = st.selectbox(
-            "Comparison A",
-            options=comparisons,
-            index=0,
-            key="fc_comp_a",
-        )
-    with col_b:
-        default_b = 1 if len(comparisons) > 1 else 0
-        comp_b = st.selectbox(
-            "Comparison B",
-            options=comparisons,
-            index=default_b,
-            key="fc_comp_b",
-        )
+            if not upset_df.empty:
+                fig_upset = _create_upset_plot(upset_df)
+                st.plotly_chart(fig_upset, use_container_width=True, key="upset_plot")
 
-    if comp_a == comp_b:
-        st.warning("Select two different comparisons to compare fold-changes.")
-    else:
-        # Check both comparisons have required columns
-        if "log2fc" not in deg_all[comp_a].columns or "log2fc" not in deg_all[comp_b].columns:
-            st.error("Both comparisons must have a `log2fc` column.")
-        else:
-            scatter_df = _build_fc_scatter_data(
-                deg_all, comp_a, comp_b,
-                padj_thresh=padj_thresh,
-                log2fc_thresh=log2fc_thresh,
-            )
+                # Intersection selector
+                st.markdown("#### Genes in Selected Intersection")
+                intersection_options = upset_df["intersection"].tolist()
+                selected_intersection = st.selectbox(
+                    "Select intersection",
+                    options=intersection_options,
+                    key="upset_intersection",
+                )
 
-            if scatter_df.empty:
-                st.info("No shared genes between the two comparisons.")
+                if selected_intersection:
+                    filtered = upset_df[upset_df["intersection"] == selected_intersection]
+                    if filtered.empty:
+                        st.warning("Selected intersection no longer available.")
+                        return
+                    selected_row = filtered.iloc[0]
+                    gene_list = sorted(selected_row["genes"])
+                    st.write(f"**{len(gene_list)} genes** in: {selected_intersection}")
+
+                    gene_df = pd.DataFrame({"gene": gene_list})
+                    st.dataframe(gene_df, use_container_width=True, hide_index=True, height=300)
+                    download_csv_button(gene_df, f"intersection_genes_{selected_intersection}.csv")
             else:
-                fig_scatter = _create_fc_scatter(scatter_df, comp_a, comp_b)
-                st.plotly_chart(fig_scatter, use_container_width=True, key="fc_scatter")
-
-                # Category counts
-                counts = scatter_df["category"].value_counts()
-                with st.container(border=True):
-                    cc1, cc2, cc3, cc4 = st.columns(4)
-                    cc1.metric("Concordant Up", fmt_count(counts.get("Concordant Up", 0)))
-                    cc2.metric("Concordant Down", fmt_count(counts.get("Concordant Down", 0)))
-                    cc3.metric("Discordant", fmt_count(counts.get("Discordant", 0)))
-                    cc4.metric("Total Shared", fmt_count(len(scatter_df)))
-
-    st.divider()
+                st.info("No exclusive intersections found at the current thresholds.")
+        else:
+            render_empty_state("No significant genes at current thresholds", "Try relaxing the p-value or fold-change thresholds in the sidebar.", "search")
 
     # ==================================================================
-    # Section 3: Summary Table
+    # Tab 2: Fold-Change Concordance
     # ==================================================================
-    st.header("Gene-Level Summary")
-    st.caption(
-        f"Log2 fold-change per comparison for genes significant (padj < {padj_thresh}, "
-        f"|log2FC| > {log2fc_thresh}) in at least one comparison. "
-        "Cells are colored: vermilion = significantly up, "
-        "blue = significantly down, gray = not significant. "
-        "Adjust sidebar thresholds to change filtering."
-    )
+    with tab_concordance:
+        st.caption(
+            "Compare log2 fold-changes between two comparisons. "
+            "Concordant genes are colored by direction (vermilion = up, blue = down); "
+            "discordant genes are gray."
+        )
 
-    summary_df = _build_summary_table(deg_all, padj_thresh, log2fc_thresh)
-
-    if summary_df.empty:
-        st.info("No significant DEGs at the current thresholds.")
-    else:
-        # Build a display-friendly version with colored HTML
-        # For Streamlit dataframe, use column_config for coloring
-        display_df = summary_df[["gene"]].copy()
-
-        log2fc_cols = [c for c in summary_df.columns if c.startswith("log2fc_")]
-        padj_cols = [c for c in summary_df.columns if c.startswith("padj_")]
-
-        for lfc_col in log2fc_cols:
-            comp_name = lfc_col.replace("log2fc_", "")
-            display_df[comp_name] = summary_df[lfc_col].map(
-                lambda x: f"{x:.2f}" if pd.notna(x) else "---"
+        col_a, col_b = st.columns(2)
+        with col_a:
+            comp_a = st.selectbox(
+                "Comparison A",
+                options=comparisons,
+                index=0,
+                key="fc_comp_a",
+            )
+        with col_b:
+            default_b = 1 if len(comparisons) > 1 else 0
+            comp_b = st.selectbox(
+                "Comparison B",
+                options=comparisons,
+                index=default_b,
+                key="fc_comp_b",
             )
 
-        st.markdown(f"**{len(display_df)} genes** significant in at least one comparison.")
+        if comp_a == comp_b:
+            st.warning("You selected the same comparison for both axes. Choose different comparisons to see meaningful concordance.")
+            # Still render but with the warning visible
+        else:
+            # Check both comparisons have required columns
+            if "log2fc" not in deg_all[comp_a].columns or "log2fc" not in deg_all[comp_b].columns:
+                st.error("Both comparisons must have a `log2fc` column.")
+            else:
+                scatter_df = _build_fc_scatter_data(
+                    deg_all, comp_a, comp_b,
+                    padj_thresh=padj_thresh,
+                    log2fc_thresh=log2fc_thresh,
+                )
 
-        # Use a styled HTML table for colored cells
-        html_rows = []
-        for _, row in summary_df.iterrows():
-            cells = [f'<td style="font-weight:600; padding:0.5rem 0.75rem;">{_html.escape(str(row["gene"]))}</td>']
+                if scatter_df.empty:
+                    st.info("No shared genes between the two comparisons.")
+                else:
+                    fig_scatter = _create_fc_scatter(scatter_df, comp_a, comp_b)
+                    st.plotly_chart(fig_scatter, use_container_width=True, key="fc_scatter")
+
+                    # Category counts
+                    counts = scatter_df["category"].value_counts()
+                    with st.container(border=True):
+                        cc1, cc2, cc3, cc4 = st.columns(4)
+                        cc1.metric("Concordant Up", fmt_count(counts.get("Concordant Up", 0)))
+                        cc2.metric("Concordant Down", fmt_count(counts.get("Concordant Down", 0)))
+                        cc3.metric("Discordant", fmt_count(counts.get("Discordant", 0)))
+                        cc4.metric("Total Shared", fmt_count(len(scatter_df)))
+
+    # ==================================================================
+    # Tab 3: Summary Table
+    # ==================================================================
+    with tab_summary:
+        st.caption(
+            f"Log2 fold-change per comparison for genes significant (padj < {padj_thresh}, "
+            f"|log2FC| > {log2fc_thresh}) in at least one comparison. "
+            "Cells are colored: vermilion = significantly up, "
+            "blue = significantly down, gray = not significant. "
+            "Adjust sidebar thresholds to change filtering."
+        )
+
+        summary_df = _build_summary_table(deg_all, padj_thresh, log2fc_thresh)
+
+        if summary_df.empty:
+            render_empty_state("No significant genes at current thresholds", "Try relaxing the p-value or fold-change thresholds in the sidebar.", "search")
+        else:
+            # Build a display-friendly version with colored HTML
+            # For Streamlit dataframe, use column_config for coloring
+            display_df = summary_df[["gene"]].copy()
+
+            log2fc_cols = [c for c in summary_df.columns if c.startswith("log2fc_")]
+            padj_cols = [c for c in summary_df.columns if c.startswith("padj_")]
+
             for lfc_col in log2fc_cols:
                 comp_name = lfc_col.replace("log2fc_", "")
-                padj_col = f"padj_{comp_name}"
-                val = row[lfc_col]
-                padj_val = row.get(padj_col, np.nan)
-                style = _style_log2fc_cell(val, padj_val, padj_thresh, log2fc_thresh)
-                if pd.notna(val):
-                    # Add directional arrow for accessibility (colorblind-friendly)
-                    is_sig = pd.notna(padj_val) and padj_val < padj_thresh and abs(val) > log2fc_thresh
-                    if is_sig and val > 0:
-                        display_val = f"&uarr; {val:.2f}"
-                    elif is_sig and val < 0:
-                        display_val = f"&darr; {val:.2f}"
-                    else:
-                        display_val = f"{val:.2f}"
-                else:
-                    display_val = "---"
-                cells.append(
-                    f'<td style="{style} text-align:center; padding:0.5rem 0.75rem; '
-                    f'border-radius:4px;">{display_val}</td>'
+                display_df[comp_name] = summary_df[lfc_col].map(
+                    lambda x: f"{x:.2f}" if pd.notna(x) else "---"
                 )
-            html_rows.append("<tr>" + "".join(cells) + "</tr>")
 
-        comp_headers = [lfc_col.replace("log2fc_", "") for lfc_col in log2fc_cols]
-        header_cells = ['<th style="text-align:left; padding:0.65rem 0.75rem;">Gene</th>']
-        for ch in comp_headers:
-            header_cells.append(
-                f'<th style="text-align:center; padding:0.65rem 0.75rem;">{_html.escape(ch)}</th>'
-            )
+            st.markdown(f"**{len(display_df)} genes** significant in at least one comparison.")
 
-        # Limit display to 200 rows in HTML, offer CSV for full data
-        displayed_rows = html_rows[:_MAX_TABLE_DISPLAY_ROWS]
+            # Use a styled HTML table for colored cells
+            html_rows = []
+            for _, row in summary_df.iterrows():
+                cells = [f'<td style="font-weight:600; padding:0.5rem 0.75rem;">{_html.escape(str(row["gene"]))}</td>']
+                for lfc_col in log2fc_cols:
+                    comp_name = lfc_col.replace("log2fc_", "")
+                    padj_col = f"padj_{comp_name}"
+                    val = row[lfc_col]
+                    padj_val = row.get(padj_col, np.nan)
+                    style = _style_log2fc_cell(val, padj_val, padj_thresh, log2fc_thresh)
+                    if pd.notna(val):
+                        # Add directional arrow for accessibility (colorblind-friendly)
+                        is_sig = pd.notna(padj_val) and padj_val < padj_thresh and abs(val) > log2fc_thresh
+                        if is_sig and val > 0:
+                            display_val = f"&uarr; {val:.2f}"
+                        elif is_sig and val < 0:
+                            display_val = f"&darr; {val:.2f}"
+                        else:
+                            display_val = f"{val:.2f}"
+                    else:
+                        display_val = "---"
+                    cells.append(
+                        f'<td style="{style} text-align:center; padding:0.5rem 0.75rem; '
+                        f'border-radius:4px;">{display_val}</td>'
+                    )
+                html_rows.append("<tr>" + "".join(cells) + "</tr>")
 
-        html_table = f"""
-        <div style="max-height:500px; overflow-y:auto; border:1px solid #E5E5E5;
-                    border-radius:10px; box-shadow:0 1px 3px rgba(0,0,0,0.03);">
-        <table>
-        <thead>
-            <tr>{"".join(header_cells)}</tr>
-        </thead>
-        <tbody>
-            {"".join(displayed_rows)}
-        </tbody>
-        </table>
-        </div>
-        """
+            comp_headers = [lfc_col.replace("log2fc_", "") for lfc_col in log2fc_cols]
+            header_cells = ['<th style="text-align:left; padding:0.65rem 0.75rem;">Gene</th>']
+            for ch in comp_headers:
+                header_cells.append(
+                    f'<th style="text-align:center; padding:0.65rem 0.75rem;">{_html.escape(ch)}</th>'
+                )
 
-        if len(html_rows) > _MAX_TABLE_DISPLAY_ROWS:
-            st.markdown(
-                f"Showing first {_MAX_TABLE_DISPLAY_ROWS} of {len(html_rows)} genes. "
-                "Download CSV for the full table."
-            )
+            # Limit display to 200 rows in HTML, offer CSV for full data
+            displayed_rows = html_rows[:_MAX_TABLE_DISPLAY_ROWS]
 
-        st.markdown(html_table, unsafe_allow_html=True)
+            html_table = f"""
+            <div style="max-height:500px; overflow-y:auto; border:1px solid #E5E5E5;
+                        border-radius:10px; box-shadow:0 1px 3px rgba(0,0,0,0.03);">
+            <table>
+            <thead>
+                <tr>{"".join(header_cells)}</tr>
+            </thead>
+            <tbody>
+                {"".join(displayed_rows)}
+            </tbody>
+            </table>
+            </div>
+            """
 
-        # Download full summary
-        download_csv_button(summary_df, "multi_condition_summary.csv", "Download full summary CSV")
+            if len(html_rows) > _MAX_TABLE_DISPLAY_ROWS:
+                st.markdown(
+                    f"Showing first {_MAX_TABLE_DISPLAY_ROWS} of {len(html_rows)} genes. "
+                    "Download CSV for the full table."
+                )
+
+            st.markdown(html_table, unsafe_allow_html=True)
+
+            # Download full summary
+            download_csv_button(summary_df, "multi_condition_summary.csv", "Download full summary CSV")
 
 
 # ---------------------------------------------------------------------------

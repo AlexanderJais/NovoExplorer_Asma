@@ -68,6 +68,25 @@ def get_basket() -> list[str]:
     return list(st.session_state[_BASKET_KEY])
 
 
+def basket_to_csv() -> str:
+    """Return basket gene names as a CSV string."""
+    basket = get_basket()
+    return "\n".join(["gene_name"] + basket)
+
+
+def import_to_basket(text: str) -> int:
+    """Import gene names from newline/comma-separated text. Returns count added."""
+    import re
+    init_basket()
+    genes = [g.strip() for g in re.split(r"[,\n]+", text) if g.strip()]
+    added = 0
+    for gene in genes:
+        if gene and gene not in st.session_state[_BASKET_KEY]:
+            st.session_state[_BASKET_KEY].append(gene)
+            added += 1
+    return added
+
+
 def render_basket() -> None:
     """Render the gene basket as a sidebar panel with remove / clear buttons.
 
@@ -104,3 +123,27 @@ def render_basket() -> None:
         if st.button("Clear all", key="basket_clear"):
             clear_basket()
             st.rerun()
+
+        # Bulk actions
+        with st.expander("Bulk actions", expanded=False):
+            # Export
+            csv_data = basket_to_csv()
+            st.download_button(
+                "Export basket (CSV)",
+                data=csv_data.encode("utf-8"),
+                file_name="gene_basket.csv",
+                mime="text/csv",
+                key="basket_export",
+            )
+            # Import
+            import_text = st.text_area(
+                "Import genes (one per line or comma-separated)",
+                key="basket_import_text",
+                height=80,
+                placeholder="TP53, BRCA1, MYC...",
+            )
+            if st.button("Import", key="basket_import_btn"):
+                if import_text.strip():
+                    n = import_to_basket(import_text)
+                    st.toast(f"Added {n} gene(s) to basket")
+                    st.rerun()

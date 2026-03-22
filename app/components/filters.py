@@ -170,3 +170,32 @@ def gene_search_box(gene_names, key="gene_search"):
         return selected
 
     return None
+
+
+def colormap_selector(key="colormap"):
+    """Selectbox for choosing a heatmap colormap.
+
+    Parameters
+    ----------
+    key : str
+        Unique Streamlit widget key.
+
+    Returns
+    -------
+    str
+        The selected colormap name.
+    """
+    options = {
+        "RdBu (diverging)": "RdBu",
+        "Viridis (sequential)": "Viridis",
+        "Cividis (colorblind)": "Cividis",
+        "Plasma (sequential)": "Plasma",
+        "Inferno (sequential)": "Inferno",
+    }
+    label = st.selectbox(
+        "Heatmap colormap",
+        options=list(options.keys()),
+        key=key,
+        help="Choose a colorscale for heatmaps. Cividis is optimized for colorblind accessibility.",
+    )
+    return options[label]
