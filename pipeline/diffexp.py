@@ -115,10 +115,17 @@ def parse_novogene_deg(
         # Standardise column names (defensive -- ingest should already do this)
         df = standardize_deg_columns(df)
 
-        # Coerce numeric columns
+        # Coerce numeric columns (warn if values are lost)
         for col in ("log2fc", "pvalue", "padj"):
             if col in df.columns:
+                before_na = df[col].isna().sum()
                 df[col] = pd.to_numeric(df[col], errors="coerce")
+                coerced = df[col].isna().sum() - before_na
+                if coerced > 0:
+                    logger.warning(
+                        "Comparison '%s': %d non-numeric values in '%s' coerced to NaN.",
+                        comp_name, coerced, col,
+                    )
 
         # Drop rows with missing padj
         if "padj" in df.columns:

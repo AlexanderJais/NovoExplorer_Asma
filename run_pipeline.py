@@ -201,18 +201,31 @@ def run_pipeline(config: Dict[str, Any]) -> None:
         "enrichment": (
             ingest_data.get("enrichment", {}) if ingest_data else {}
         ),
-        # Similarity results
-        "similarity": similarity_result or {},
-        # QC results
-        "qc": qc_result or {},
+        # Similarity results - map run_similarity() keys to persistence keys
+        "similarity": {
+            "cosine_matrix": (similarity_result or {}).get("similarity_matrix"),
+            "gene_clusters": (similarity_result or {}).get("cluster_labels"),
+            "signature_vectors": (similarity_result or {}).get("signature_vectors"),
+        },
+        # QC results - map run_qc() keys to persistence keys
+        "qc": {
+            "library_sizes": (qc_result or {}).get("library_sizes"),
+            "detection_rates": (qc_result or {}).get("detection_rates"),
+            "mito_fractions": (qc_result or {}).get("mito_fractions"),
+            "correlation": (qc_result or {}).get("correlation_matrix"),
+        },
         # Embeddings (extracted from QC PCA/UMAP results)
         "embeddings": {
             "pca_coordinates": qc_result.get("pca", {}).get("coordinates") if qc_result else None,
             "pca_variance": qc_result.get("pca", {}).get("variance_explained") if qc_result else None,
             "umap": qc_result.get("umap") if qc_result else None,
         },
-        # Signature analysis
-        "signatures": signatures_result or {},
+        # Signature analysis - map run_signatures() keys to persistence keys
+        "signatures": {
+            "overlap_matrix": (signatures_result or {}).get("overlap_matrix"),
+            "core": (signatures_result or {}).get("core_signatures"),
+            "unique": (signatures_result or {}).get("unique_signatures"),
+        },
         # Metadata
         "metadata": {
             "samples": sample_info,

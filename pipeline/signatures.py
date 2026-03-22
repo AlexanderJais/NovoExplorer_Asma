@@ -85,8 +85,8 @@ def run_preranked_gsea(
         logger.warning("No valid rows to rank for GSEA.")
         return None, pd.DataFrame()
 
-    # Clamp pvalues away from zero to avoid infinite ranking scores
-    df["pvalue"] = df["pvalue"].clip(lower=1e-300)
+    # Clamp pvalues to valid range [1e-300, 1.0]
+    df["pvalue"] = df["pvalue"].clip(lower=1e-300, upper=1.0)
 
     df["rank_score"] = np.sign(df["log2fc"]) * -np.log10(df["pvalue"])
 

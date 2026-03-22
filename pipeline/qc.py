@@ -289,6 +289,14 @@ def compute_umap(
     log_data = np.log2(subset + 1)
     X = log_data.T
 
+    # UMAP requires at least 3 samples
+    if X.shape[0] < 3:
+        logger.warning(
+            "Too few samples (%d) for UMAP -- need at least 3. Returning empty.",
+            X.shape[0],
+        )
+        return pd.DataFrame(columns=["UMAP1", "UMAP2"])
+
     # Adjust n_neighbors if we have very few samples
     effective_neighbors = min(n_neighbors, X.shape[0] - 1)
     effective_neighbors = max(effective_neighbors, 2)

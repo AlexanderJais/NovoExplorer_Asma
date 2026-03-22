@@ -34,12 +34,20 @@ logger = setup_logger(__name__)
 # Internal helpers
 # ---------------------------------------------------------------------------
 
-def _safe_put(store: pd.HDFStore, key: str, value: pd.DataFrame) -> None:
-    """Write a DataFrame to *store* at *key*, skipping None values."""
+def _safe_put(store: pd.HDFStore, key: str, value) -> None:
+    """Write a DataFrame/Series/array to *store* at *key*, skipping None."""
     if value is None:
         return
-    if not isinstance(value, (pd.DataFrame, pd.Series)):
-        logger.warning("Skipping key '%s': value is not a DataFrame/Series.", key)
+    # Convert Series to DataFrame for reliable HDF5 roundtrip
+    if isinstance(value, pd.Series):
+        value = value.to_frame(name=value.name or "value")
+    # Convert numpy arrays to DataFrame (e.g., PCA variance_explained)
+    if isinstance(value, np.ndarray):
+        value = pd.DataFrame({"value": value})
+    if not isinstance(value, pd.DataFrame):
+        logger.warning("Skipping key '%s': unsupported type %s.", key, type(value).__name__)
+        return
+    if value.empty:
         return
     store.put(key, value, format="table")
 

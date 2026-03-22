@@ -127,9 +127,11 @@ def _normalize_enrichment_df(df: pd.DataFrame) -> pd.DataFrame:
         except Exception:
             pass
     if "gene_ratio" not in out.columns and "gene_count" in out.columns:
-        total = out["gene_count"].sum()
-        if total > 0:
-            out["gene_ratio"] = out["gene_count"] / total
+        # Use gene_count directly as a proxy; avoid dividing by sum of counts
+        # (which would be meaningless). Normalize to [0, 1] for display.
+        max_count = out["gene_count"].max()
+        if max_count > 0:
+            out["gene_ratio"] = out["gene_count"] / max_count
 
     # Genes
     for col in ("genes", "Genes", "lead_genes", "Lead_genes"):
