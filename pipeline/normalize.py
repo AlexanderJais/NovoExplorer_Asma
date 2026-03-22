@@ -159,18 +159,20 @@ def standardize_expression_matrix(
     try:
         mapping = load_gene_id_mapping(organism=organism)
         if mapping is not None and len(mapping) > 0:
-            mapped = result.index.map(
-                lambda gid: mapping.get(gid, gid)  # noqa: B023
-            )
-            n_mapped = (mapped != result.index).sum()
-            if n_mapped > 0:
+            # Build a Series for vectorized lookup instead of per-element lambda
+            mapping_series = pd.Series(mapping, dtype="object")
+            # Only map IDs that actually have a mapping entry
+            needs_mapping = result.index.isin(mapping_series.index)
+            if needs_mapping.any():
+                new_index = result.index.to_series()
+                new_index[needs_mapping] = new_index[needs_mapping].map(mapping_series)
+                n_mapped = int(needs_mapping.sum())
                 logger.info(
                     "Mapped %d / %d Ensembl IDs to gene symbols.",
                     n_mapped,
                     len(result),
                 )
-                result.index = mapped
-                result.index.name = "gene_id"
+                result.index = pd.Index(new_index.values, name="gene_id")
                 # Re-aggregate if mapping introduced duplicates
                 if result.index.duplicated().any():
                     logger.warning(
