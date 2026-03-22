@@ -236,8 +236,8 @@ def _build_fc_scatter_data(
 
     # Classify concordance
     def _classify(row):
-        sig_a = row.get("padj_a", 0) < padj_thresh and abs(row["log2fc_a"]) > log2fc_thresh
-        sig_b = row.get("padj_b", 0) < padj_thresh and abs(row["log2fc_b"]) > log2fc_thresh
+        sig_a = row.get("padj_a", 1.0) < padj_thresh and abs(row["log2fc_a"]) > log2fc_thresh
+        sig_b = row.get("padj_b", 1.0) < padj_thresh and abs(row["log2fc_b"]) > log2fc_thresh
 
         if sig_a and sig_b:
             if row["log2fc_a"] > 0 and row["log2fc_b"] > 0:
@@ -471,7 +471,11 @@ def main() -> None:
             )
 
             if selected_intersection:
-                selected_row = upset_df[upset_df["intersection"] == selected_intersection].iloc[0]
+                filtered = upset_df[upset_df["intersection"] == selected_intersection]
+                if filtered.empty:
+                    st.warning("Selected intersection no longer available.")
+                    return
+                selected_row = filtered.iloc[0]
                 gene_list = sorted(selected_row["genes"])
                 st.write(f"**{len(gene_list)} genes** in: {selected_intersection}")
 

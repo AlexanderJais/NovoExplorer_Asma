@@ -63,9 +63,13 @@ def create_enrichment_dotplot(
     if "gene_ratio" in df.columns:
         x_vals = df["gene_ratio"]
         x_label = "Gene Ratio"
-    else:
+    elif "gene_count" in df.columns:
         x_vals = df["gene_count"]
         x_label = "Gene Count"
+    else:
+        # No numeric measure available; use row position as placeholder
+        x_vals = pd.Series(range(1, len(df) + 1), index=df.index)
+        x_label = "Rank"
 
     # Dot size from gene_count
     if "gene_count" in df.columns:

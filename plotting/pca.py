@@ -130,7 +130,7 @@ def create_pca_scatter(
             )
 
             # 95% confidence ellipse (need >= 3 points)
-            if gx.sum() != 0 and len(gx) >= 3:
+            if len(gx) >= 3:
                 ex, ey = _confidence_ellipse(gx, gy)
                 fig.add_trace(
                     go.Scatter(

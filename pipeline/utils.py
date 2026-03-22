@@ -270,7 +270,7 @@ def standardize_enrichment_columns(df: pd.DataFrame) -> pd.DataFrame:
         ],
         "gene_count": [
             "Count", "count", "Gene_count", "gene_count",
-            "Genes", "nGenes",
+            "nGenes",
         ],
         "gene_ratio": [
             "GeneRatio", "gene_ratio", "Rich_Factor",

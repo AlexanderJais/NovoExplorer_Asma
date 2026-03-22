@@ -44,6 +44,9 @@ def create_upset_data(
     """
     sig_sets: dict[str, set[str]] = {}
     for name, df in deg_results.items():
+        if "gene_name" not in df.columns:
+            df = df.copy()
+            df["gene_name"] = df.index.astype(str)
         mask = (df["padj"] < padj_threshold) & (df["log2fc"].abs() >= log2fc_threshold)
         sig_sets[name] = set(df.loc[mask, "gene_name"])
 

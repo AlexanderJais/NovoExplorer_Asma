@@ -350,6 +350,12 @@ def get_top_variable_genes(
         return df
 
     gene_var = df.var(axis=1)
+    # Guard against all-zero variance (constant expression across samples)
+    if gene_var.max() == 0 or gene_var.dropna().empty:
+        logger.warning(
+            "All genes have zero variance -- returning full matrix unchanged."
+        )
+        return df
     top_genes = gene_var.nlargest(n).index
     result = df.loc[top_genes]
     logger.info(
