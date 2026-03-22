@@ -40,6 +40,12 @@ from app.components.gene_basket import (  # noqa: E402
     render_basket,
 )
 from app.components.download import download_csv_button  # noqa: E402
+from app.components.shared import (  # noqa: E402
+    get_data_path,
+    check_data_path,
+    create_expression_bar,
+    table_height,
+)
 
 # ---------------------------------------------------------------------------
 # Page configuration
@@ -51,14 +57,7 @@ st.set_page_config(page_title="Gene Search", layout="wide")
 # Data path helpers
 # ---------------------------------------------------------------------------
 
-DATA_PATH_KEY = "data_path"
-DEFAULT_DATA_PATH = str(_NOVOVIEW_ROOT / "results" / "novoview_results.h5")
-
-
-def _get_data_path() -> str:
-    # Check the canonical key set by app.py first, then local fallback
-    return st.session_state.get("results_path",
-           st.session_state.get(DATA_PATH_KEY, DEFAULT_DATA_PATH))
+_get_data_path = get_data_path
 
 
 # ---------------------------------------------------------------------------
@@ -91,46 +90,7 @@ def _load_deg(path: str) -> dict | None:
 # ---------------------------------------------------------------------------
 
 
-def _create_expression_bar(
-    gene_name: str,
-    expression_df: pd.DataFrame,
-    samples_meta: pd.DataFrame | None,
-) -> go.Figure | None:
-    """Bar chart of a single gene's expression across samples/conditions."""
-    if expression_df is None or gene_name not in expression_df.index:
-        return None
-
-    expr_values = expression_df.loc[gene_name]
-    df = pd.DataFrame({
-        "sample": expr_values.index,
-        "expression": expr_values.values,
-    })
-
-    # Attach condition from metadata
-    if samples_meta is not None and not samples_meta.empty:
-        meta = samples_meta.copy()
-        if "sample_id" in meta.columns:
-            meta = meta.set_index("sample_id")
-        for candidate in ("condition", "group", "sample_group"):
-            if candidate in meta.columns:
-                df["condition"] = meta[candidate].reindex(df["sample"].values).values
-                break
-
-    if "condition" not in df.columns:
-        df["condition"] = "all"
-
-    fig = px.bar(
-        df,
-        x="sample",
-        y="expression",
-        color="condition",
-        color_discrete_sequence=WONG_PALETTE,
-        title=f"{gene_name} Expression Across Samples",
-        labels={"expression": "Expression (TPM)", "sample": "Sample"},
-    )
-    fig.update_layout(xaxis_tickangle=-45, bargap=0.2)
-    apply_plotly_theme(fig)
-    return fig
+_create_expression_bar = create_expression_bar
 
 
 def _find_similar_genes(
@@ -250,13 +210,7 @@ def main() -> None:
     init_basket()
 
     data_path = _get_data_path()
-
-    if not Path(data_path).exists():
-        st.error(
-            f"Results file not found: `{data_path}`.  "
-            "Run the pipeline first or set the correct path in session state "
-            f"(key: `{DATA_PATH_KEY}`)."
-        )
+    if not check_data_path(data_path):
         return
 
     # Load data
@@ -307,27 +261,28 @@ def main() -> None:
 
     st.subheader(f"Gene: {selected_gene}")
 
-    info_cols = st.columns(4)
-    with info_cols[0]:
-        st.metric("Gene Name", gene_info["name"])
-    with info_cols[1]:
-        cluster = gene_info.get("cluster", "N/A")
-        st.metric("Cluster", cluster)
-    with info_cols[2]:
-        mean_expr = gene_info.get("mean_expression")
-        st.metric("Mean Expression", f"{mean_expr:.2f}" if mean_expr is not None else "N/A")
-    with info_cols[3]:
-        detected = gene_info.get("n_samples_detected")
-        total = gene_info.get("n_samples_total")
-        if detected is not None and total is not None:
-            st.metric("Detected In", f"{detected}/{total} samples")
-        else:
-            st.metric("Detected In", "N/A")
+    with st.container(border=True):
+        info_cols = st.columns(4)
+        with info_cols[0]:
+            st.metric("Gene Name", gene_info["name"])
+        with info_cols[1]:
+            cluster = gene_info.get("cluster", "N/A")
+            st.metric("Cluster", cluster)
+        with info_cols[2]:
+            mean_expr = gene_info.get("mean_expression")
+            st.metric("Mean Expression", f"{mean_expr:.2f}" if mean_expr is not None else "N/A")
+        with info_cols[3]:
+            detected = gene_info.get("n_samples_detected")
+            total = gene_info.get("n_samples_total")
+            if detected is not None and total is not None:
+                st.metric("Detected In", f"{detected}/{total} samples")
+            else:
+                st.metric("Detected In", "N/A")
 
-    # Show DEG significance info
-    sig_in = gene_info.get("significant_in")
-    if sig_in:
-        st.caption(f"Significantly differentially expressed in: {', '.join(sig_in)}")
+        # Show DEG significance info
+        sig_in = gene_info.get("significant_in")
+        if sig_in:
+            st.caption(f"Significantly differentially expressed in: {', '.join(sig_in)}")
 
     st.divider()
 
@@ -364,7 +319,7 @@ def main() -> None:
                 similar_df,
                 use_container_width=True,
                 hide_index=True,
-                height=400,
+                height=table_height(len(similar_df)),
             )
 
             download_csv_button(

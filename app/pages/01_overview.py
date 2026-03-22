@@ -12,7 +12,6 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 
@@ -33,6 +32,13 @@ from plotting.pca import create_pca_scatter, create_umap_scatter  # noqa: E402
 from plotting.heatmap import create_heatmap_plotly  # noqa: E402
 from app.components.filters import threshold_sliders  # noqa: E402
 from app.components.download import download_figure_buttons  # noqa: E402
+from app.components.shared import (  # noqa: E402
+    get_data_path,
+    check_data_path,
+    get_sample_groups,
+    fmt_count,
+    table_height,
+)
 
 # ---------------------------------------------------------------------------
 # Page configuration
@@ -78,14 +84,7 @@ def _create_correlation_heatmap(corr_df: pd.DataFrame) -> go.Figure:
 # Data loading with caching
 # ---------------------------------------------------------------------------
 
-DATA_PATH_KEY = "data_path"
-DEFAULT_DATA_PATH = str(_NOVOVIEW_ROOT / "results" / "novoview_results.h5")
-
-
-def _get_data_path() -> str:
-    # Check the canonical key set by app.py first, then local fallback
-    return st.session_state.get("results_path",
-           st.session_state.get(DATA_PATH_KEY, DEFAULT_DATA_PATH))
+_get_data_path = get_data_path
 
 
 @st.cache_data(show_spinner="Loading results...")
@@ -108,30 +107,7 @@ def _load_deg(path: str) -> dict | None:
     return load_deg(path)
 
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-
-def _get_sample_groups(
-    samples_meta: pd.DataFrame | None,
-    sample_names: list[str],
-) -> pd.Series | None:
-    """Extract a condition Series aligned to *sample_names* from metadata."""
-    if samples_meta is None or samples_meta.empty:
-        return None
-
-    meta = samples_meta.copy()
-    if "sample_id" in meta.columns:
-        meta = meta.set_index("sample_id")
-
-    for candidate in ("condition", "group", "sample_group"):
-        if candidate in meta.columns:
-            groups = meta[candidate].reindex(sample_names)
-            groups.name = "condition"
-            return groups
-
-    return None
+_get_sample_groups = get_sample_groups
 
 
 # ---------------------------------------------------------------------------
@@ -147,13 +123,7 @@ def main() -> None:
     )
 
     data_path = _get_data_path()
-
-    if not Path(data_path).exists():
-        st.error(
-            f"Results file not found: `{data_path}`.  "
-            "Run the pipeline first or set the correct path in session state "
-            f"(key: `{DATA_PATH_KEY}`)."
-        )
+    if not check_data_path(data_path):
         return
 
     # Load all data
@@ -188,15 +158,15 @@ def main() -> None:
                 )
 
     col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Total Samples", n_samples)
-    col2.metric("Total Genes", f"{n_genes:,}")
-    col3.metric("Comparisons", n_comparisons)
-    col4.metric("Total DEGs", f"{total_degs:,}")
+    col1.metric("Total Samples", fmt_count(n_samples))
+    col2.metric("Total Genes", fmt_count(n_genes))
+    col3.metric("Comparisons", fmt_count(n_comparisons))
+    col4.metric("Total DEGs", fmt_count(total_degs))
 
     # ------------------------------------------------------------------
     # Middle section: PCA / UMAP + Correlation heatmap
     # ------------------------------------------------------------------
-    st.markdown("---")
+    st.divider()
     st.header("Dimensionality Reduction & Sample Correlation")
     left_col, right_col = st.columns(2)
 
@@ -271,26 +241,19 @@ def main() -> None:
     # ------------------------------------------------------------------
     # Bottom section: top variable gene heatmap + DEG summary table
     # ------------------------------------------------------------------
-    st.markdown("---")
+    st.divider()
     st.header("Top Variable Genes & DEG Summary")
     bottom_left, bottom_right = st.columns(2)
 
     with bottom_left:
         st.subheader("Top 50 Most Variable Genes")
         if expression_df is not None:
-            sample_groups_dict = None
-            if samples_meta is not None and not samples_meta.empty:
-                meta = samples_meta.copy()
-                if "sample_id" in meta.columns:
-                    meta = meta.set_index("sample_id")
-                for candidate in ("condition", "group", "sample_group"):
-                    if candidate in meta.columns:
-                        sample_groups_dict = meta[candidate]
-                        break
+            sample_names_hm = expression_df.columns.tolist()
+            sample_groups_hm = _get_sample_groups(samples_meta, sample_names_hm)
 
             fig_hm = create_heatmap_plotly(
                 expression_df,
-                sample_groups=sample_groups_dict,
+                sample_groups=sample_groups_hm,
                 genes=None,
                 n_top_genes=50,
                 title="Top 50 Variable Genes (z-score)",
@@ -336,6 +299,7 @@ def main() -> None:
                     summary_df,
                     use_container_width=True,
                     hide_index=True,
+                    height=table_height(len(summary_df)),
                 )
             else:
                 st.info("No DEG results contain the required columns.")

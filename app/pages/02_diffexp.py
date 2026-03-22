@@ -51,6 +51,14 @@ from app.components.gene_basket import (  # noqa: E402
     get_basket,
     render_basket,
 )
+from app.components.shared import (  # noqa: E402
+    get_data_path,
+    check_data_path,
+    create_expression_bar,
+    fmt_pvalue,
+    fmt_fc,
+    table_height,
+)
 
 # ---------------------------------------------------------------------------
 # Page configuration
@@ -62,15 +70,7 @@ st.set_page_config(page_title="Differential Expression", layout="wide")
 # Data path helpers
 # ---------------------------------------------------------------------------
 
-DATA_PATH_KEY = "data_path"
-DEFAULT_DATA_PATH = str(_NOVOVIEW_ROOT / "results" / "novoview_results.h5")
-
-
-def _get_data_path() -> str:
-    return st.session_state.get(
-        "results_path",
-        st.session_state.get(DATA_PATH_KEY, DEFAULT_DATA_PATH),
-    )
+_get_data_path = get_data_path
 
 
 # ---------------------------------------------------------------------------
@@ -98,48 +98,7 @@ def _list_comparisons(path: str) -> list[str]:
     return list_comparisons(path)
 
 
-# ---------------------------------------------------------------------------
-# Expression bar chart for a single gene
-# ---------------------------------------------------------------------------
-
-
-def _create_expression_bar(
-    gene_name: str,
-    expression_df: pd.DataFrame,
-    samples_meta: pd.DataFrame | None,
-) -> go.Figure | None:
-    """Bar chart of a single gene's expression across conditions."""
-    if expression_df is None or gene_name not in expression_df.index:
-        return None
-
-    expr_values = expression_df.loc[gene_name]
-    df = pd.DataFrame({"sample": expr_values.index, "expression": expr_values.values})
-
-    # Try to add condition information
-    if samples_meta is not None and not samples_meta.empty:
-        meta = samples_meta.copy()
-        if "sample_id" in meta.columns:
-            meta = meta.set_index("sample_id")
-        for candidate in ("condition", "group", "sample_group"):
-            if candidate in meta.columns:
-                df["condition"] = meta[candidate].reindex(df["sample"].values).values
-                break
-
-    if "condition" not in df.columns:
-        df["condition"] = "all"
-
-    fig = px.bar(
-        df,
-        x="sample",
-        y="expression",
-        color="condition",
-        color_discrete_sequence=WONG_PALETTE,
-        title=f"{gene_name} Expression",
-        labels={"expression": "Expression (TPM)", "sample": "Sample"},
-    )
-    fig.update_layout(xaxis_tickangle=-45)
-    apply_plotly_theme(fig)
-    return fig
+_create_expression_bar = create_expression_bar
 
 
 # ---------------------------------------------------------------------------
@@ -201,13 +160,7 @@ def main() -> None:
     init_basket()
 
     data_path = _get_data_path()
-
-    if not Path(data_path).exists():
-        st.error(
-            f"Results file not found: `{data_path}`.  "
-            "Run the pipeline first or set the correct path in session state "
-            f"(key: `{DATA_PATH_KEY}`)."
-        )
+    if not check_data_path(data_path):
         return
 
     # Load data
@@ -304,7 +257,7 @@ def main() -> None:
     # ------------------------------------------------------------------
     # DEG table: filterable by regulation, sortable by padj
     # ------------------------------------------------------------------
-    st.markdown("---")
+    st.divider()
     st.subheader("DEG Table")
     st.caption("Genes meeting the significance thresholds, sorted by adjusted p-value.")
 
@@ -363,7 +316,7 @@ def main() -> None:
             table_df,
             use_container_width=True,
             hide_index=True,
-            height=400,
+            height=table_height(len(table_df)),
         )
 
         # Add-to-basket section
@@ -416,9 +369,9 @@ def main() -> None:
                 stat_cols = st.columns(3)
                 row = gene_row.iloc[0]
                 if "log2fc" in row.index:
-                    stat_cols[0].metric("log2 Fold Change", f"{row['log2fc']:.3f}")
+                    stat_cols[0].metric("log2 Fold Change", fmt_fc(row["log2fc"]))
                 if "padj" in row.index:
-                    stat_cols[1].metric("Adjusted p-value", f"{row['padj']:.2e}")
+                    stat_cols[1].metric("Adjusted p-value", fmt_pvalue(row["padj"]))
                 if "basemean" in row.index:
                     stat_cols[2].metric("Base Mean", f"{row['basemean']:.1f}")
                 elif "baseMean" in row.index:

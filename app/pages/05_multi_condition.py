@@ -33,6 +33,7 @@ from plotting.theme import (
 )
 from app.components.filters import threshold_sliders
 from app.components.download import download_csv_button
+from app.components.shared import get_data_path, check_data_path, fmt_count
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -42,17 +43,11 @@ _VERMILION = "#D55E00"
 _BLUE = "#0072B2"
 _GRAY = "#BBBBBB"
 
-DATA_PATH_KEY = "data_path"
-DEFAULT_DATA_PATH = str(_NOVOVIEW_ROOT / "results" / "novoview_results.h5")
+_get_data_path = get_data_path
 
 # ---------------------------------------------------------------------------
 # Data loading
 # ---------------------------------------------------------------------------
-
-
-def _get_data_path() -> str:
-    return st.session_state.get("results_path",
-           st.session_state.get(DATA_PATH_KEY, DEFAULT_DATA_PATH))
 
 
 @st.cache_data(show_spinner="Loading DEG data...")
@@ -418,12 +413,7 @@ def main() -> None:
     )
 
     data_path = _get_data_path()
-
-    if not Path(data_path).exists():
-        st.error(
-            f"Results file not found: `{data_path}`. "
-            "Run the pipeline first or verify the configuration."
-        )
+    if not check_data_path(data_path):
         return
 
     deg_all = _load_deg(data_path)
@@ -439,7 +429,7 @@ def main() -> None:
 
     # Sidebar thresholds
     with st.sidebar:
-        st.header("Thresholds")
+        st.header("Filters")
         padj_thresh, log2fc_thresh = threshold_sliders(key_prefix="multi_")
 
     sig_genes = _get_sig_genes(deg_all, padj_thresh, log2fc_thresh)
@@ -487,7 +477,7 @@ def main() -> None:
     else:
         st.info("No significant DEGs found at the current thresholds.")
 
-    st.markdown("---")
+    st.divider()
 
     # ==================================================================
     # Section 2: Fold-Change Concordance
@@ -537,13 +527,14 @@ def main() -> None:
 
                 # Category counts
                 counts = scatter_df["category"].value_counts()
-                cc1, cc2, cc3, cc4 = st.columns(4)
-                cc1.metric("Concordant Up", counts.get("Concordant Up", 0))
-                cc2.metric("Concordant Down", counts.get("Concordant Down", 0))
-                cc3.metric("Discordant", counts.get("Discordant", 0))
-                cc4.metric("Total Shared Genes", len(scatter_df))
+                with st.container(border=True):
+                    cc1, cc2, cc3, cc4 = st.columns(4)
+                    cc1.metric("Concordant Up", fmt_count(counts.get("Concordant Up", 0)))
+                    cc2.metric("Concordant Down", fmt_count(counts.get("Concordant Down", 0)))
+                    cc3.metric("Discordant", fmt_count(counts.get("Discordant", 0)))
+                    cc4.metric("Total Shared", fmt_count(len(scatter_df)))
 
-    st.markdown("---")
+    st.divider()
 
     # ==================================================================
     # Section 3: Summary Table

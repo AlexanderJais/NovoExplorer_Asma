@@ -26,6 +26,7 @@ from pipeline.persistence import load_enrichment, load_deg, load_signatures
 from plotting.enrichment import create_enrichment_dotplot
 from plotting.theme import apply_plotly_theme, get_nature_colorscale, WONG_PALETTE
 from app.components.download import download_csv_button, download_figure_buttons
+from app.components.shared import get_data_path, check_data_path, table_height
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -49,13 +50,7 @@ _DATABASE_DISPLAY_ORDER = ["Hallmark", "GO BP", "GO CC", "GO MF", "KEGG"]
 # Data helpers
 # ---------------------------------------------------------------------------
 
-DATA_PATH_KEY = "data_path"
-DEFAULT_DATA_PATH = str(_NOVOVIEW_ROOT / "results" / "novoview_results.h5")
-
-
-def _get_data_path() -> str:
-    return st.session_state.get("results_path",
-           st.session_state.get(DATA_PATH_KEY, DEFAULT_DATA_PATH))
+_get_data_path = get_data_path
 
 
 @st.cache_data(show_spinner="Loading enrichment data...")
@@ -331,12 +326,7 @@ def main() -> None:
     )
 
     data_path = _get_data_path()
-
-    if not Path(data_path).exists():
-        st.error(
-            f"Results file not found: `{data_path}`. "
-            "Run the pipeline first or verify the configuration."
-        )
+    if not check_data_path(data_path):
         return
 
     enrichment_data = _load_enrichment(data_path)
@@ -355,7 +345,7 @@ def main() -> None:
     # Sidebar controls
     # ------------------------------------------------------------------
     with st.sidebar:
-        st.header("Signature Filters")
+        st.header("Filters")
 
         comparison_options = ["All"] + comparisons
         selected_comparison = st.selectbox(
@@ -462,7 +452,7 @@ def main() -> None:
                 table_df,
                 use_container_width=True,
                 hide_index=True,
-                height=min(400, 35 * len(table_df) + 38),
+                height=table_height(len(table_df)),
             )
 
             # Download table as CSV
@@ -478,7 +468,7 @@ def main() -> None:
     if len(comparisons) < 2:
         return
 
-    st.markdown("---")
+    st.divider()
     st.header("Cross-Comparison Signature Analysis")
 
     # --- Jaccard overlap heatmap ---
@@ -523,12 +513,12 @@ def main() -> None:
     else:
         st.info("Not enough data to compute overlap heatmap.")
 
-    # --- Core signatures ---
+    # --- Core and unique signatures ---
     col_core, col_unique = st.columns(2)
 
     with col_core:
         st.subheader("Core Signatures")
-        st.caption("Gene sets enriched in multiple comparisons.")
+        st.caption("Gene sets enriched across multiple comparisons.")
 
         # Try pre-computed core signatures, fall back to computing
         core_df = None

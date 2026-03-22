@@ -23,6 +23,7 @@ def add_to_basket(gene_name):
     init_basket()
     if gene_name and gene_name not in st.session_state[_BASKET_KEY]:
         st.session_state[_BASKET_KEY].append(gene_name)
+        st.toast(f"Added **{gene_name}** to basket")
 
 
 def remove_from_basket(gene_name):
