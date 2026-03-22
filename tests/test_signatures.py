@@ -39,11 +39,11 @@ def _make_deg_results(n_genes=50, seed=42):
 
 
 def _make_enrichment_results():
-    """Synthetic enrichment results dict."""
-    def _gsea_df(terms, padj_vals):
+    """Synthetic enrichment results dict matching pipeline conventions."""
+    def _gsea_df(terms, fdr_vals):
         return pd.DataFrame({
-            "Term": terms,
-            "padj": padj_vals,
+            "term": terms,
+            "fdr": fdr_vals,
         })
 
     return {
@@ -115,9 +115,9 @@ class TestFindCoreSignatures:
         enrich = _make_enrichment_results()
         core = find_core_signatures(enrich, min_comparisons=2)
         assert isinstance(core, pd.DataFrame)
-        # TERM1 is significant in both A_vs_B and A_vs_C
-        if len(core) > 0:
-            assert "TERM1" in core["term"].values
+        # TERM1 is significant (padj < 0.05) in both A_vs_B and A_vs_C
+        assert len(core) > 0, "Expected at least one core signature"
+        assert "TERM1" in core["term"].values
 
     def test_min_comparisons_filter(self):
         enrich = _make_enrichment_results()
@@ -131,8 +131,7 @@ class TestFindUniqueSignatures:
         enrich = _make_enrichment_results()
         unique = find_unique_signatures(enrich)
         assert isinstance(unique, pd.DataFrame)
-        # TERM4 only appears in A_vs_C
-        if len(unique) > 0:
-            unique_terms = set(unique["term"].values)
-            # TERM4 should be unique (only in A_vs_C)
-            assert "TERM4" in unique_terms
+        # TERM4 only appears in A_vs_C (padj=0.03)
+        assert len(unique) > 0, "Expected at least one unique signature"
+        unique_terms = set(unique["term"].values)
+        assert "TERM4" in unique_terms

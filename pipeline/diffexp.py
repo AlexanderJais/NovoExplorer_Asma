@@ -331,11 +331,14 @@ def run_pydeseq2(
             if "gene_name" not in res_df.columns:
                 res_df["gene_name"] = res_df["gene_id"]
 
-            # Add regulation column
-            res_df["regulation"] = res_df.apply(
-                lambda row: classify_regulation(row["log2fc"], row["padj"]),
-                axis=1,
-            )
+            # Add regulation column (only if required columns survived filtering)
+            if "log2fc" in res_df.columns and "padj" in res_df.columns:
+                res_df["regulation"] = res_df.apply(
+                    lambda row: classify_regulation(row["log2fc"], row["padj"]),
+                    axis=1,
+                )
+            else:
+                res_df["regulation"] = "ns"
 
             results[comp_name] = res_df
             n_up = (res_df["regulation"] == "up").sum()
@@ -395,7 +398,7 @@ def get_significant_genes(
         )
         return deg_df
 
-    mask = (deg_df["padj"] < padj_threshold) & (deg_df["log2fc"].abs() > log2fc_threshold)
+    mask = (deg_df["padj"] <= padj_threshold) & (deg_df["log2fc"].abs() >= log2fc_threshold)
     sig = deg_df.loc[mask].copy()
     logger.info(
         "Significant genes: %d / %d (padj < %g, |log2fc| > %g)",

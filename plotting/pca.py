@@ -100,10 +100,12 @@ def create_pca_scatter(
     pc1 = coords[:, 0]
     pc2 = coords[:, 1]
 
-    # Normalise variance_explained to percentages
+    # Normalise variance_explained to percentages; pad to at least 2 elements
     ve = np.asarray(variance_explained, dtype=float)
     if ve.max() <= 1.0:
         ve = ve * 100
+    if len(ve) < 2:
+        ve = np.pad(ve, (0, 2 - len(ve)), constant_values=0.0)
 
     fig = go.Figure()
 

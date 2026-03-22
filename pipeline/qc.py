@@ -295,7 +295,10 @@ def compute_umap(
             "Too few samples (%d) for UMAP -- need at least 3. Returning empty.",
             X.shape[0],
         )
-        return pd.DataFrame(columns=["UMAP1", "UMAP2"])
+        return pd.DataFrame(
+            columns=["UMAP1", "UMAP2"],
+            index=counts_df.columns,
+        )
 
     # Adjust n_neighbors if we have very few samples
     effective_neighbors = min(n_neighbors, X.shape[0] - 1)

@@ -139,10 +139,13 @@ class TestUMAP:
         assert "UMAP1" in result.columns
         assert "UMAP2" in result.columns
 
-    def test_fewer_than_3_samples_returns_empty(self):
+    def test_fewer_than_3_samples_returns_nan(self):
         counts = _make_counts(n_genes=50, n_samples=2)
         result = compute_umap(counts)
-        assert result.empty
+        # Should return indexed DataFrame with NaN values, not empty
+        assert len(result) == 2
+        assert list(result.columns) == ["UMAP1", "UMAP2"]
+        assert result.isna().all().all()
 
 
 class TestDetectOutliers:

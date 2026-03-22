@@ -143,6 +143,19 @@ def create_heatmap_plotly(
     plotly.graph_objects.Figure
     """
     sub = _select_genes(expression_df, genes, n_top_genes)
+
+    if sub.empty:
+        fig = go.Figure()
+        fig.update_layout(
+            title=title or "Heatmap",
+            annotations=[dict(
+                text="No genes available for heatmap",
+                x=0.5, y=0.5, xref="paper", yref="paper",
+                showarrow=False, font=dict(size=14, color="#7A7A7A"),
+            )],
+        )
+        return fig
+
     zscored = _zscore_rows(sub)
 
     # Cluster rows

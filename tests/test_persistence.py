@@ -123,6 +123,10 @@ class TestSaveLoadRoundtrip:
         # DEG
         assert "A_vs_B" in loaded["deg"]
         assert len(loaded["deg"]["A_vs_B"]) == 10
+        pd.testing.assert_frame_equal(
+            loaded["deg"]["A_vs_B"],
+            results["deg"]["A_vs_B"],
+        )
 
     def test_metadata_roundtrip(self, tmp_path):
         h5_path = tmp_path / "results.h5"

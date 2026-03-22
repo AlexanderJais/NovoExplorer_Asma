@@ -70,6 +70,12 @@ class TestClassifyRegulation:
         assert classify_regulation(-1.0, 0.05) == "down"
         assert classify_regulation(1.0, 0.05, log2fc_threshold=1.0, padj_threshold=0.05) == "up"
 
+    def test_just_below_boundary_is_ns(self):
+        """Genes just below the threshold should be not significant."""
+        assert classify_regulation(0.999, 0.05) == "ns"
+        assert classify_regulation(-0.999, 0.05) == "ns"
+        assert classify_regulation(1.0, 0.051) == "ns"
+
 
 class TestParseNovoGeneDeg:
     def test_returns_cleaned_dict(self):
