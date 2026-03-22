@@ -3,11 +3,15 @@
 
 Launch with::
 
+    # Interactive mode (pick data in the browser):
+    streamlit run novoview/app/app.py
+
+    # Config mode (pre-configured project):
     streamlit run novoview/app/app.py -- --config config.yaml
 
-The ``--config`` flag (after the Streamlit ``--`` separator) points to the
-project YAML.  The app reads the config, resolves the results HDF5 path,
-and stores both in ``st.session_state`` for downstream pages.
+When launched without ``--config``, the app shows a welcome screen where
+the user can browse to a results folder or HDF5 file.  Once a valid path
+is provided, the full analysis UI becomes available.
 """
 
 from __future__ import annotations
@@ -33,6 +37,7 @@ from pipeline.utils import load_config  # noqa: E402
 # Constants
 # ---------------------------------------------------------------------------
 _VERSION = "0.1.0"
+_DEFAULT_RESULTS_FILENAME = "novoview_results.h5"
 
 _PAGE_DIR = _APP_DIR / "pages"
 
@@ -66,14 +71,14 @@ if _CSS_PATH.exists():
 
 
 # ---------------------------------------------------------------------------
-# Parse --config from sys.argv
+# Parse --config from sys.argv (returns None when absent)
 # ---------------------------------------------------------------------------
 
-def _parse_config_path() -> str:
+def _parse_config_path() -> str | None:
     """Extract the ``--config`` value from sys.argv.
 
-    Streamlit passes custom CLI args after a ``--`` separator, so they
-    appear in ``sys.argv`` alongside Streamlit's own flags.
+    Returns ``None`` when no ``--config`` flag is present, signalling
+    the app should show the interactive data picker instead.
     """
     args = sys.argv[1:]  # skip script name
     for i, arg in enumerate(args):
@@ -81,7 +86,7 @@ def _parse_config_path() -> str:
             return args[i + 1]
         if arg.startswith("--config="):
             return arg.split("=", 1)[1]
-    return "config.yaml"  # sensible default
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -94,13 +99,24 @@ def _load_project_config(config_path: str) -> dict:
     return load_config(config_path)
 
 
-def _init_session_state() -> None:
-    """Populate ``st.session_state`` with config, results_path, etc."""
-    if "config" in st.session_state:
-        return  # already initialised
+def _resolve_results_path(folder: str) -> str | None:
+    """Given a folder or file path, return the HDF5 results path or None."""
+    p = Path(folder).expanduser().resolve()
+    if p.is_file() and p.suffix in (".h5", ".hdf5"):
+        return str(p)
+    if p.is_dir():
+        candidate = p / _DEFAULT_RESULTS_FILENAME
+        if candidate.exists():
+            return str(candidate)
+        # Check for any .h5 file in the directory
+        h5_files = sorted(p.glob("*.h5"))
+        if len(h5_files) == 1:
+            return str(h5_files[0])
+    return None
 
-    config_path = _parse_config_path()
 
+def _init_from_config(config_path: str) -> bool:
+    """Try to initialise session state from a YAML config. Returns True on success."""
     try:
         config = _load_project_config(config_path)
     except FileNotFoundError:
@@ -108,19 +124,127 @@ def _init_session_state() -> None:
             f"Configuration file not found: **{config_path}**. "
             "Pass `--config path/to/config.yaml` after the Streamlit `--` separator."
         )
-        st.stop()
+        return False
     except Exception as exc:
         st.error(f"Failed to load configuration: **{type(exc).__name__}** -- {exc}")
-        st.stop()
+        return False
 
-    # Resolve the HDF5 results file
     output_dir = config.get("output_dir", "results")
-    results_file = config.get("results_file", "novoview_results.h5")
+    results_file = config.get("results_file", _DEFAULT_RESULTS_FILENAME)
     results_path = str(Path(output_dir) / results_file)
 
     st.session_state["config"] = config
     st.session_state["config_path"] = config_path
     st.session_state["results_path"] = results_path
+    return True
+
+
+def _init_session_state() -> None:
+    """Populate ``st.session_state`` -- either from CLI config or interactively."""
+    if "results_path" in st.session_state:
+        return  # already initialised
+
+    config_path = _parse_config_path()
+
+    if config_path is not None:
+        if not _init_from_config(config_path):
+            st.stop()
+        return
+
+    # --- Interactive mode: show the data picker ---
+    _show_data_picker()
+    st.stop()  # halt until user provides a valid path
+
+
+# ---------------------------------------------------------------------------
+# Interactive data picker (welcome / launcher screen)
+# ---------------------------------------------------------------------------
+
+def _show_data_picker() -> None:
+    """Render the welcome screen with a folder/file browser."""
+    st.markdown("# NovoView")
+    st.caption("RNA-Seq Analysis Platform")
+
+    st.markdown("---")
+
+    st.markdown(
+        "### Welcome! Point NovoView to your analysis results to get started."
+    )
+    st.markdown(
+        "Enter the path to either:\n"
+        f"- A **folder** containing `{_DEFAULT_RESULTS_FILENAME}`\n"
+        "- An **HDF5 results file** (`.h5`) directly\n"
+        "- A **config.yaml** file from a previous pipeline run"
+    )
+
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        user_path = st.text_input(
+            "Results path",
+            value=st.session_state.get("_picker_path", ""),
+            placeholder="/path/to/results or /path/to/novoview_results.h5",
+            key="_picker_input",
+        )
+    with col2:
+        st.markdown("<div style='height: 1.75rem'></div>", unsafe_allow_html=True)
+        load_clicked = st.button("Load", type="primary", use_container_width=True)
+
+    if not load_clicked or not user_path.strip():
+        _show_picker_help()
+        return
+
+    user_path = user_path.strip()
+    p = Path(user_path).expanduser().resolve()
+
+    # --- Case 1: user pointed to a config.yaml ---
+    if p.is_file() and p.suffix in (".yaml", ".yml"):
+        if _init_from_config(str(p)):
+            st.rerun()
+        return
+
+    # --- Case 2: folder or HDF5 file ---
+    results_path = _resolve_results_path(user_path)
+    if results_path is None:
+        if not p.exists():
+            st.error(f"Path does not exist: `{user_path}`")
+        elif p.is_dir():
+            st.error(
+                f"No HDF5 results file found in `{user_path}`. "
+                f"Expected `{_DEFAULT_RESULTS_FILENAME}` or a single `.h5` file."
+            )
+        else:
+            st.error(
+                f"Unrecognized file type: `{p.name}`. "
+                "Please provide a `.h5` results file, a results folder, or a `config.yaml`."
+            )
+        return
+
+    # Store minimal config and results path
+    st.session_state["config"] = {
+        "project_name": p.parent.name if p.is_file() else p.name,
+        "organism": "human",
+    }
+    st.session_state["results_path"] = results_path
+    st.session_state["_picker_path"] = user_path
+    st.rerun()
+
+
+def _show_picker_help() -> None:
+    """Show helpful tips on the welcome screen."""
+    st.markdown("---")
+    with st.expander("How do I get results to load?", expanded=False):
+        st.markdown(
+            "1. Run the NovoView pipeline on your RNA-Seq data:\n"
+            "   ```bash\n"
+            "   python -m novoview.pipeline.run --config config.yaml\n"
+            "   ```\n"
+            f"2. This produces `{_DEFAULT_RESULTS_FILENAME}` in your output directory.\n"
+            "3. Enter that directory path above and click **Load**.\n\n"
+            "Alternatively, launch with a config file:\n"
+            "   ```bash\n"
+            "   streamlit run novoview/app/app.py -- --config config.yaml\n"
+            "   ```"
+        )
 
 
 _init_session_state()
@@ -167,6 +291,12 @@ with st.sidebar:
     st.page_link(str(_PAGE_DIR / "05_multi_condition.py"), label="Multi-Condition", icon="\U0001F504")
 
     st.markdown("---")
+
+    # Change data source
+    if st.button("Change data source", use_container_width=True):
+        for key in ("config", "config_path", "results_path", "_picker_path"):
+            st.session_state.pop(key, None)
+        st.rerun()
 
     # Version footer
     st.markdown(
