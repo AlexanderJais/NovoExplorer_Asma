@@ -116,9 +116,11 @@ def _normalize_enrichment_df(df: pd.DataFrame) -> pd.DataFrame:
     if "gene_ratio" not in out.columns and "overlap" in df.columns:
         try:
             parts = df["overlap"].astype(str).str.split("/")
-            numerator = parts.str[0].astype(float)
-            denominator = parts.str[1].astype(float).replace(0, np.nan)
-            out["gene_ratio"] = (numerator / denominator).values
+            numerator = pd.to_numeric(parts.str[0], errors="coerce")
+            denominator = pd.to_numeric(parts.str[1], errors="coerce")
+            # Avoid division by zero: set ratio to NaN where denominator is 0
+            ratio = numerator / denominator.where(denominator != 0, other=np.nan)
+            out["gene_ratio"] = ratio.values
         except Exception:
             pass
     if "gene_ratio" not in out.columns and "gene_count" in out.columns:

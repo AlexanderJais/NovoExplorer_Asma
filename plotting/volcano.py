@@ -23,8 +23,8 @@ def _classify_genes(
 ) -> pd.Series:
     """Return a Series of 'up', 'down', or 'ns' for each gene."""
     sig = deg_df["padj"] < padj_threshold
-    up = sig & (deg_df["log2fc"] > log2fc_threshold)
-    down = sig & (deg_df["log2fc"] < -log2fc_threshold)
+    up = sig & (deg_df["log2fc"] >= log2fc_threshold)
+    down = sig & (deg_df["log2fc"] <= -log2fc_threshold)
     category = pd.Series("ns", index=deg_df.index)
     category[up] = "up"
     category[down] = "down"

@@ -223,12 +223,14 @@ def compute_tpm_from_counts(
     if gene_lengths is not None:
         # Align lengths to counts index; missing genes get NaN
         lengths = gene_lengths.reindex(counts_df.index)
-        missing = lengths.isna().sum()
+        missing = int(lengths.isna().sum())
         if missing > 0:
+            pct = missing / len(lengths) * 100
             logger.warning(
-                "%d genes lack length information -- using placeholder "
-                "length of 1000 bp for those genes.",
-                missing,
+                "%d / %d genes (%.1f%%) lack length information -- using "
+                "placeholder length of 1000 bp.  TPM values for these genes "
+                "will be approximate.",
+                missing, len(lengths), pct,
             )
             lengths = lengths.fillna(1000)
     else:

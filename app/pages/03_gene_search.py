@@ -11,7 +11,6 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 
@@ -229,15 +228,22 @@ def main() -> None:
     # ------------------------------------------------------------------
     # Build gene list for autocomplete
     # ------------------------------------------------------------------
-    # Cache sorted gene list in session state to avoid re-sorting on each rerun
-    if "gene_names_cache" not in st.session_state:
+    # Cache sorted gene list in session state, keyed by data_path to
+    # invalidate when the dataset changes.
+    _cache_key = "gene_names_cache"
+    _cache_path_key = "gene_names_cache_path"
+    if (
+        _cache_key not in st.session_state
+        or st.session_state.get(_cache_path_key) != data_path
+    ):
         if expression_df is not None:
-            st.session_state.gene_names_cache = sorted(expression_df.index.tolist())
+            st.session_state[_cache_key] = sorted(expression_df.index.tolist())
         elif similarity_data is not None and similarity_data.get("cosine_matrix") is not None:
-            st.session_state.gene_names_cache = sorted(similarity_data["cosine_matrix"].index.tolist())
+            st.session_state[_cache_key] = sorted(similarity_data["cosine_matrix"].index.tolist())
         else:
-            st.session_state.gene_names_cache = []
-    gene_names: list[str] = st.session_state.gene_names_cache
+            st.session_state[_cache_key] = []
+        st.session_state[_cache_path_key] = data_path
+    gene_names: list[str] = st.session_state[_cache_key]
 
     if not gene_names:
         st.warning("No gene names available. Ensure expression data is loaded.")

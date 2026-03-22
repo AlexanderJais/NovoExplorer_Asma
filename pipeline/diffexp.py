@@ -289,6 +289,18 @@ def run_pydeseq2(
                 )
                 continue
 
+            # DESeq2 requires >= 2 replicates per group
+            meta_ab_check = meta.loc[samples_ab]
+            n_a = (meta_ab_check["group"] == group_a).sum()
+            n_b = (meta_ab_check["group"] == group_b).sum()
+            if n_a < 2 or n_b < 2:
+                logger.warning(
+                    "  Skipping %s -- DESeq2 requires >= 2 replicates per group "
+                    "(found %d in '%s', %d in '%s').",
+                    comp_name, n_a, group_a, n_b, group_b,
+                )
+                continue
+
             meta_ab = meta.loc[samples_ab].copy()
             counts_ab = counts_sub[samples_ab].copy()
 

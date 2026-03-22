@@ -41,6 +41,12 @@ def _confidence_ellipse(
         (ellipse_x, ellipse_y) arrays suitable for plotting.
     """
     cov = np.cov(x, y)
+    if np.linalg.matrix_rank(cov) < 2:
+        import logging as _logging
+        _logging.getLogger(__name__).warning(
+            "Covariance matrix is rank-deficient (collinear samples); "
+            "confidence ellipse will be degenerate."
+        )
     eigenvalues, eigenvectors = np.linalg.eigh(cov)
     # Sort by descending eigenvalue
     order = eigenvalues.argsort()[::-1]
@@ -105,6 +111,12 @@ def create_pca_scatter(
     if ve.max() <= 1.0:
         ve = ve * 100
     if len(ve) < 2:
+        import logging as _log
+        _log.getLogger(__name__).warning(
+            "variance_explained has %d element(s); expected >= 2.  "
+            "Padding with 0%% for missing PC(s).",
+            len(ve),
+        )
         ve = np.pad(ve, (0, 2 - len(ve)), constant_values=0.0)
 
     fig = go.Figure()

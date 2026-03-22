@@ -244,6 +244,7 @@ def compute_expression_signature_vectors(
     )
 
     pieces: dict[str, pd.Series] = {}
+    skipped: list[tuple[str, str]] = []
     for comparison_name, df in deg_results.items():
         # Determine the gene identifier column (standardized names)
         if "gene_name" in df.columns:
@@ -251,10 +252,7 @@ def compute_expression_signature_vectors(
         elif "gene_id" in df.columns:
             gene_col = "gene_id"
         else:
-            logger.warning(
-                "Comparison '%s': no gene_name or gene_id column found, skipping.",
-                comparison_name,
-            )
+            skipped.append((comparison_name, "missing gene_name/gene_id"))
             continue
 
         # Determine the log2FC column (standardized name)
@@ -263,16 +261,20 @@ def compute_expression_signature_vectors(
         elif "log2FoldChange" in df.columns:
             fc_col = "log2FoldChange"
         else:
-            logger.warning(
-                "Comparison '%s': no log2fc column found, skipping.",
-                comparison_name,
-            )
+            skipped.append((comparison_name, "missing log2fc/log2FoldChange"))
             continue
 
         series = df.set_index(gene_col)[fc_col]
         # If duplicates exist, keep the first occurrence
         series = series[~series.index.duplicated(keep="first")]
         pieces[comparison_name] = series
+
+    if skipped:
+        logger.warning(
+            "Skipped %d comparison(s) for signature vectors: %s",
+            len(skipped),
+            "; ".join(f"{c} ({r})" for c, r in skipped),
+        )
 
     signature_df = pd.DataFrame(pieces).fillna(0.0)
     logger.info(

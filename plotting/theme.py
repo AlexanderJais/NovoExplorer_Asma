@@ -70,7 +70,7 @@ def apply_matplotlib_theme() -> None:
         "axes.linewidth": 0.5,
     }
     mpl.rcParams.update(rc)
-    sns.set_style("ticks")
+    sns.set_theme(style="ticks", rc=rc)
     sns.despine()
 
 

@@ -348,7 +348,7 @@ def _build_summary_table(
             genes = df[gc].astype(str)
 
         for idx, gene in enumerate(genes):
-            if pd.isna(gene) or gene == "nan":
+            if pd.isna(gene) or str(gene).strip().lower() == "nan" or gene == "":
                 continue
             all_genes.add(gene)
             row_data = df.iloc[idx]

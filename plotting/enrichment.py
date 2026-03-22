@@ -57,7 +57,7 @@ def create_enrichment_dotplot(
 
     # Determine x-axis values
     if "gene_ratio" in df.columns:
-        x_vals = df["gene_ratio"]
+        x_vals = pd.to_numeric(df["gene_ratio"], errors="coerce")
         x_label = "Gene Ratio"
     elif "gene_count" in df.columns:
         x_vals = df["gene_count"]

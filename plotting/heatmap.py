@@ -33,9 +33,22 @@ def _select_genes(
 
 
 def _zscore_rows(df: pd.DataFrame) -> pd.DataFrame:
-    """Z-score normalize each row (gene)."""
+    """Z-score normalize each row (gene).
+
+    Genes with zero variance across samples are scaled to 0 (not NaN).
+    """
+    import logging as _logging
+
     means = df.mean(axis=1)
-    stds = df.std(axis=1).replace(0, 1)
+    stds = df.std(axis=1)
+    n_zero_var = int((stds == 0).sum())
+    if n_zero_var > 0:
+        _logging.getLogger(__name__).warning(
+            "%d gene(s) have zero variance across samples and will appear "
+            "as zero in the z-scored heatmap.",
+            n_zero_var,
+        )
+    stds = stds.replace(0, 1)
     return df.sub(means, axis=0).div(stds, axis=0)
 
 

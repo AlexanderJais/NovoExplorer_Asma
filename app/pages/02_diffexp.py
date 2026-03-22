@@ -244,18 +244,13 @@ def main() -> None:
                 log2fc_threshold=log2fc_thresh,
                 title=f"MA Plot: {selected_comparison}",
             )
+            st.plotly_chart(fig_ma, use_container_width=True)
+            download_figure_buttons(fig_ma, f"ma_plot_{selected_comparison}")
         else:
-            # Fallback: create a simple MA-style plot if basemean is missing
-            df_ma = deg_df.copy()
-            df_ma["basemean"] = 1.0  # dummy
-            fig_ma = create_ma_plot_plotly(
-                df_ma,
-                padj_threshold=padj_thresh,
-                log2fc_threshold=log2fc_thresh,
-                title=f"MA Plot: {selected_comparison} (basemean unavailable)",
+            st.info(
+                "MA plot requires a `basemean` column (mean expression). "
+                "This column is not available for this comparison."
             )
-        st.plotly_chart(fig_ma, use_container_width=True)
-        download_figure_buttons(fig_ma, f"ma_plot_{selected_comparison}")
 
     # ------------------------------------------------------------------
     # DEG table: filterable by regulation, sortable by padj
@@ -272,17 +267,17 @@ def main() -> None:
 
     table_df = deg_df[display_cols].copy() if display_cols else deg_df.copy()
 
-    # Compute regulation column if missing
-    if "regulation" not in table_df.columns and "padj" in deg_df.columns:
-        sig = deg_df["padj"] < padj_thresh
+    # Compute regulation column BEFORE filtering so indices stay aligned
+    if "regulation" not in table_df.columns and "padj" in table_df.columns and "log2fc" in table_df.columns:
         table_df["regulation"] = "ns"
-        table_df.loc[sig & (deg_df["log2fc"] > log2fc_thresh), "regulation"] = "up"
-        table_df.loc[sig & (deg_df["log2fc"] < -log2fc_thresh), "regulation"] = "down"
+        sig = table_df["padj"] < padj_thresh
+        table_df.loc[sig & (table_df["log2fc"] >= log2fc_thresh), "regulation"] = "up"
+        table_df.loc[sig & (table_df["log2fc"] <= -log2fc_thresh), "regulation"] = "down"
 
     # Filter to significant genes, then sort by padj
-    if "padj" in table_df.columns:
-        sig_mask = (deg_df["padj"] < padj_thresh) & (
-            deg_df["log2fc"].abs() > log2fc_thresh
+    if "padj" in table_df.columns and "log2fc" in table_df.columns:
+        sig_mask = (table_df["padj"] < padj_thresh) & (
+            table_df["log2fc"].abs() > log2fc_thresh
         )
         table_df = table_df.loc[sig_mask].copy()
 

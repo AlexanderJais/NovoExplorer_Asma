@@ -65,9 +65,11 @@ def _safe_get(store: pd.HDFStore, key: str) -> Optional[pd.DataFrame]:
 def _sanitize_name(name: str) -> str:
     """Sanitize a comparison/database name for use as an HDF5 group name.
 
-    Replaces characters that are problematic in HDF5 paths with underscores.
+    Uses URL-encoding for characters that are problematic in HDF5 paths,
+    avoiding collisions between names like ``A/vs/B`` and ``A_vs_B``.
     """
-    return name.replace("/", "_").replace("\\", "_").replace(" ", "_")
+    import urllib.parse
+    return urllib.parse.quote(name, safe="_-.")
 
 
 # ---------------------------------------------------------------------------
@@ -315,6 +317,10 @@ def load_results(output_path: str | Path) -> Dict[str, Any]:
                     results["metadata"]["project"] = project_meta
     except (FileNotFoundError, OSError):
         pass
+    except Exception as exc:
+        logger.warning(
+            "Could not read project metadata from '%s': %s", output_path, exc
+        )
 
     logger.info("Results loaded from '%s'.", output_path)
     return results
