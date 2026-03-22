@@ -23,7 +23,7 @@ logger = setup_logger(__name__)
 
 def compute_cosine_similarity_matrix(
     expression_df: pd.DataFrame,
-    top_n_genes: int = 5000,
+    top_n_genes: int = 2000,
 ) -> pd.DataFrame:
     """Compute pairwise cosine similarity for the most variable genes.
 
@@ -182,7 +182,7 @@ def cluster_genes(
     best_labels = None
     best_n = None
 
-    for _ in range(100):
+    for _ in range(50):
         mid = (lo + hi) / 2.0
         labels = fcluster(linkage_matrix, t=mid, criterion="distance")
         n_clusters = len(np.unique(labels))
@@ -439,7 +439,7 @@ def run_similarity(
     """
     logger.info("=== Starting gene similarity pipeline ===")
 
-    top_n_genes = config.get("top_n_genes", 5000)
+    top_n_genes = config.get("top_n_genes", 2000)
     min_clusters = config.get("min_clusters", 20)
     max_clusters = config.get("max_clusters", 50)
 

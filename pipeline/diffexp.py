@@ -69,6 +69,20 @@ def classify_regulation(
     return "ns"
 
 
+def _vectorized_classify(
+    log2fc: pd.Series,
+    padj: pd.Series,
+    log2fc_threshold: float = 1.0,
+    padj_threshold: float = 0.05,
+) -> pd.Series:
+    """Vectorized version of :func:`classify_regulation` for entire columns."""
+    result = pd.Series("ns", index=log2fc.index)
+    sig = padj.le(padj_threshold) & padj.notna() & log2fc.notna()
+    result[sig & log2fc.ge(log2fc_threshold)] = "up"
+    result[sig & log2fc.le(-log2fc_threshold)] = "down"
+    return result
+
+
 # ===================================================================
 # 2. parse_novogene_deg  (clean pre-computed DEG results)
 # ===================================================================
@@ -137,17 +151,13 @@ def parse_novogene_deg(
         else:
             logger.warning("  Column 'padj' not found in %s -- skipping padj filter", comp_name)
 
-        # Add regulation column if missing
+        # Add regulation column if missing (vectorized for performance)
         if "regulation" not in df.columns:
             if "log2fc" in df.columns and "padj" in df.columns:
-                df["regulation"] = df.apply(
-                    lambda row: classify_regulation(
-                        row["log2fc"],
-                        row["padj"],
-                        log2fc_threshold=log2fc_threshold,
-                        padj_threshold=padj_threshold,
-                    ),
-                    axis=1,
+                df["regulation"] = _vectorized_classify(
+                    df["log2fc"], df["padj"],
+                    log2fc_threshold=log2fc_threshold,
+                    padj_threshold=padj_threshold,
                 )
                 logger.info("  Added regulation column")
             else:
@@ -331,11 +341,10 @@ def run_pydeseq2(
             if "gene_name" not in res_df.columns:
                 res_df["gene_name"] = res_df["gene_id"]
 
-            # Add regulation column (only if required columns survived filtering)
+            # Add regulation column (vectorized for performance)
             if "log2fc" in res_df.columns and "padj" in res_df.columns:
-                res_df["regulation"] = res_df.apply(
-                    lambda row: classify_regulation(row["log2fc"], row["padj"]),
-                    axis=1,
+                res_df["regulation"] = _vectorized_classify(
+                    res_df["log2fc"], res_df["padj"],
                 )
             else:
                 res_df["regulation"] = "ns"

@@ -90,11 +90,15 @@ def create_volcano_plotly(
     fig = go.Figure()
 
     # Plot each category as a separate trace for legend control
+    _MAX_NS_POINTS = 2000  # downsample NS genes for rendering performance
     for cat, label in [("ns", "NS"), ("up", "Up"), ("down", "Down")]:
         mask = category == cat
         sub = df.loc[mask]
         if sub.empty:
             continue
+        # Downsample non-significant genes to avoid slow JSON serialisation
+        if cat == "ns" and len(sub) > _MAX_NS_POINTS:
+            sub = sub.sample(n=_MAX_NS_POINTS, random_state=42)
         fig.add_trace(
             go.Scattergl(
                 x=sub["log2fc"],

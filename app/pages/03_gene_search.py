@@ -176,15 +176,19 @@ def _get_gene_info(
                         info["cluster"] = str(gene_clusters.loc[gene_name, candidate])
                     break
 
-    # DEG summary across comparisons
+    # DEG summary across comparisons (use index-based lookup for speed)
     if deg_all:
         deg_hits = []
         for comp_name, df in deg_all.items():
-            gene_col = "gene_name" if "gene_name" in df.columns else None
-            if gene_col:
-                match = df[df[gene_col] == gene_name]
+            if "gene_name" in df.columns:
+                # Use set for O(1) membership check instead of scanning the column
+                if gene_name not in set(df["gene_name"].values):
+                    continue
+                match = df.loc[df["gene_name"] == gene_name]
+            elif gene_name in df.index:
+                match = df.loc[[gene_name]]
             else:
-                match = df.loc[[gene_name]] if gene_name in df.index else pd.DataFrame()
+                continue
             if not match.empty and "padj" in match.columns:
                 row = match.iloc[0]
                 if row["padj"] < 0.05:
@@ -225,11 +229,15 @@ def main() -> None:
     # ------------------------------------------------------------------
     # Build gene list for autocomplete
     # ------------------------------------------------------------------
-    gene_names: list[str] = []
-    if expression_df is not None:
-        gene_names = sorted(expression_df.index.tolist())
-    elif similarity_data is not None and similarity_data.get("cosine_matrix") is not None:
-        gene_names = sorted(similarity_data["cosine_matrix"].index.tolist())
+    # Cache sorted gene list in session state to avoid re-sorting on each rerun
+    if "gene_names_cache" not in st.session_state:
+        if expression_df is not None:
+            st.session_state.gene_names_cache = sorted(expression_df.index.tolist())
+        elif similarity_data is not None and similarity_data.get("cosine_matrix") is not None:
+            st.session_state.gene_names_cache = sorted(similarity_data["cosine_matrix"].index.tolist())
+        else:
+            st.session_state.gene_names_cache = []
+    gene_names: list[str] = st.session_state.gene_names_cache
 
     if not gene_names:
         st.warning("No gene names available. Ensure expression data is loaded.")

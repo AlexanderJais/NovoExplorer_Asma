@@ -126,11 +126,13 @@ def main() -> None:
     if not check_data_path(data_path):
         return
 
-    # Load all data
+    # Load data -- use granular loaders to avoid reading everything twice
     results = _load_all_results(data_path)
     expression_df = _load_expression(data_path, "tpm")
     qc_data = _load_qc(data_path)
     deg_all = _load_deg(data_path)
+    # Note: results is used only for metadata/embeddings; expression, QC, and
+    # DEG data come from the granular cached loaders above.
 
     metadata = results.get("metadata") or {}
     embeddings = results.get("embeddings") or {}
@@ -226,9 +228,10 @@ def main() -> None:
         if qc_data is not None:
             corr_df = qc_data.get("correlation")
 
-        # Fallback: compute correlation from expression matrix
+        # Fallback: compute correlation from top 1000 variable genes (fast)
         if corr_df is None and expression_df is not None:
-            corr_df = expression_df.corr()
+            _top_var = expression_df.var(axis=1).nlargest(min(1000, len(expression_df)))
+            corr_df = expression_df.loc[_top_var.index].corr()
 
         if corr_df is not None:
             fig_corr = _create_correlation_heatmap(corr_df)
