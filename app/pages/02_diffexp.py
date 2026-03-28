@@ -110,7 +110,7 @@ def _create_volcano_with_highlight(
         top_n_labels=10,
     )
 
-    if highlight_gene and highlight_gene in deg_df["gene_name"].values:
+    if highlight_gene and "gene_name" in deg_df.columns and highlight_gene in deg_df["gene_name"].values:
         row = deg_df[deg_df["gene_name"] == highlight_gene].iloc[0]
         neg_log10 = -np.log10(max(row["padj"], 1e-300))
         fig.add_trace(
@@ -270,9 +270,12 @@ def main() -> None:
     # ---- MA plot (collapsible) ----
     with st.expander("MA Plot", expanded=False):
         # Use the imported create_ma_plot_plotly from plotting.ma_plot
-        if "basemean" in deg_df.columns or "baseMean" in deg_df.columns:
+        ma_df = deg_df.copy()
+        if "baseMean" in ma_df.columns and "basemean" not in ma_df.columns:
+            ma_df = ma_df.rename(columns={"baseMean": "basemean"})
+        if "basemean" in ma_df.columns:
             fig_ma = create_ma_plot_plotly(
-                deg_df,
+                ma_df,
                 padj_threshold=padj_thresh,
                 log2fc_threshold=log2fc_thresh,
                 title=f"MA Plot: {selected_comparison}",
