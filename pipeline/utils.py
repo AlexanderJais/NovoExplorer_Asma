@@ -10,7 +10,11 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import yaml
+
+try:
+    import yaml
+except ModuleNotFoundError:  # pyyaml not installed
+    yaml = None  # type: ignore[assignment]
 
 # ---------------------------------------------------------------------------
 # Package root – used to resolve resource paths
@@ -391,6 +395,12 @@ def load_config(path) -> dict:
 
     if not path.exists():
         raise FileNotFoundError(f"Configuration file not found: {path}")
+
+    if yaml is None:
+        raise ImportError(
+            "The 'pyyaml' package is required to load YAML configuration files. "
+            "Install it with:  pip install pyyaml"
+        )
 
     try:
         with open(path, "r", encoding="utf-8") as fh:
