@@ -321,10 +321,22 @@ st.sidebar.divider()
 with st.sidebar.expander("Log", expanded=False):
     log_lines = st.session_state.get("_log", [])
     if log_lines:
-        st.code("\n".join(log_lines), language="log")
-        if st.button("Clear log", key="clear_log"):
-            st.session_state["_log"] = []
-            st.rerun()
+        full_log = "\n".join(log_lines)
+        st.code(full_log, language="log")
+        col_copy, col_clear = st.columns(2)
+        with col_copy:
+            st.download_button(
+                "📋 Download log",
+                data=full_log,
+                file_name="novogene_explorer.log",
+                mime="text/plain",
+                key="download_log",
+                use_container_width=True,
+            )
+        with col_clear:
+            if st.button("Clear log", key="clear_log", use_container_width=True):
+                st.session_state["_log"] = []
+                st.rerun()
     else:
         st.caption("No log messages yet.")
 
@@ -625,18 +637,19 @@ with tab_comparison:
                             x=row["log2fc"], y=row["neg_log10_padj"],
                             text=row["gene_name"], showarrow=True,
                             arrowhead=0, arrowcolor="#555", arrowwidth=1,
-                            ax=0, ay=-18, font=dict(size=9),
+                            ax=0, ay=-22, font=dict(size=13),
                         )
 
             fig.add_vline(x=fc_t, line_dash="dash", line_color="gray", line_width=0.8)
             fig.add_vline(x=-fc_t, line_dash="dash", line_color="gray", line_width=0.8)
             fig.add_hline(y=-np.log10(padj_t), line_dash="dash", line_color="gray", line_width=0.8)
             fig.update_layout(
-                title=f"Volcano Plot — {selected_comp}",
+                title=dict(text=f"Volcano Plot — {selected_comp}", font=dict(size=18)),
                 xaxis_title="log2 Fold Change",
                 yaxis_title="-log10(padj)",
                 height=550,
-                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+                font=dict(size=14),
+                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, font=dict(size=13)),
             )
             st.plotly_chart(fig, use_container_width=True)
         else:
