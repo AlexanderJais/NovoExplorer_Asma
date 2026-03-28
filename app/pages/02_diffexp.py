@@ -330,7 +330,7 @@ def main() -> None:
         sig_mask = (table_df["padj"] < padj_thresh) & (
             table_df["log2fc"].abs() > log2fc_thresh
         )
-        table_df = table_df.loc[sig_mask].copy()
+        table_df = table_df.loc[sig_mask]
 
     if "padj" in table_df.columns:
         table_df = table_df.sort_values("padj", ascending=True)
@@ -355,7 +355,7 @@ def main() -> None:
             help="'up' = higher expression in test vs control, 'down' = lower expression.",
         )
         if reg_filter != "all":
-            table_df = table_df[table_df["regulation"] == reg_filter].copy()
+            table_df = table_df[table_df["regulation"] == reg_filter]
 
     st.caption(
         f"{len(table_df)} significant genes at padj < {padj_thresh}, "

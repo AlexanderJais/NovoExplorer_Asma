@@ -140,6 +140,21 @@ class TestStandardizeEnrichmentColumns:
         assert "term_id" in result.columns
         assert result["term_id"].iloc[0] == "hsa04110"
         assert "genes" in result.columns
+        # geneName should be preferred over geneID
+        assert result["genes"].iloc[0] == "BRCA1/TP53/MYC"
+
+    def test_geneName_preferred_over_geneID(self):
+        """When both geneID (ENSG) and geneName exist, prefer geneName."""
+        df = pd.DataFrame({
+            "KEGGID": ["hsa04110"],
+            "Description": ["Cell cycle"],
+            "pvalue": [0.001],
+            "padj": [0.01],
+            "geneID": ["ENSG00000012048/ENSG00000141510"],
+            "geneName": ["BRCA1/TP53"],
+        })
+        result = standardize_enrichment_columns(df)
+        assert result["genes"].iloc[0] == "BRCA1/TP53"
 
 
 # -----------------------------------------------------------------------

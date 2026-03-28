@@ -113,6 +113,7 @@ Both `database_first` (e.g. `Enrichment/GO/CompA_vs_CompB/`) and `comparison_fir
 | **Ranked Genes** | Waterfall plot of all genes sorted by FC or significance |
 | **DEG Summary** | Wide table: log2FC + padj for every gene across all comparisons |
 | **Pathway Viewer** | Select a GO/KEGG/Reactome term, see member genes colored by log2FC |
+| **PPI Network** | Protein-protein interaction hub analysis, score filtering, gene search |
 | **Export** | Download Excel workbook or ZIP of CSVs with optional significance filtering |
 
 ## Pages (Multi-Page App)

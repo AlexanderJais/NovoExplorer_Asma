@@ -15,6 +15,7 @@ from typing import Any, Dict, List, Optional
 import pandas as pd
 
 from pipeline.utils import (
+    find_column,
     read_table_flexible,
     setup_logger,
     standardize_deg_columns,
@@ -61,7 +62,7 @@ def _iglob_dirs(base: Path, patterns: tuple[str, ...]) -> List[Path]:
     return found
 
 
-def _iglob_files(base: Path, patterns: tuple[str, ...]) -> List[Path]:
+def iglob_files(base: Path, patterns: tuple[str, ...]) -> List[Path]:
     """Return files under *base* whose names match any pattern (case-insensitive).
 
     Searches only the immediate directory (non-recursive).
@@ -84,11 +85,27 @@ def _iglob_files(base: Path, patterns: tuple[str, ...]) -> List[Path]:
     return found
 
 
+def _find_files_prefer_all(comp_dir: Path, file_patterns: tuple[str, ...]) -> List[Path]:
+    """Find files in *comp_dir*, falling back to subdirectories (prefer ``all/``)."""
+    files = iglob_files(comp_dir, file_patterns)
+    if files:
+        return files
+    reg_dirs = sorted(
+        [d for d in comp_dir.iterdir() if d.is_dir()],
+        key=lambda d: (0 if d.name.lower() == "all" else 1, d.name.lower()),
+    )
+    for reg_dir in reg_dirs:
+        files = iglob_files(reg_dir, file_patterns)
+        if files:
+            return files
+    return []
+
+
 # Regex for numbered container folders like "1.deglist", "2.cluster", "3.enrichment"
 _NUMBERED_DIR_RE = re.compile(r"^\d+\.")
 
 
-def _is_container_dir(subdir: Path) -> bool:
+def is_container_dir(subdir: Path) -> bool:
     """Check if *subdir* is an intermediate container (not an actual comparison).
 
     Container directories have a numbered prefix (e.g. ``1.deglist``,
@@ -223,7 +240,7 @@ def parse_expression_matrices(quant_dir: str | Path | None) -> Dict[str, Optiona
 
     def _find_and_parse(patterns: tuple[str, ...], label: str) -> Optional[pd.DataFrame]:
         for sd in search_dirs:
-            matches = _iglob_files(sd, patterns)
+            matches = iglob_files(sd, patterns)
             if matches:
                 fpath = matches[0]
                 logger.info("  Parsing %s matrix: %s", label, fpath)
@@ -301,7 +318,7 @@ def parse_deg_results(deg_dir: str | Path | None) -> Dict[str, pd.DataFrame]:
     for subdir in sorted(deg_dir.iterdir()):
         if not subdir.is_dir():
             continue
-        if _is_container_dir(subdir):
+        if is_container_dir(subdir):
             # Descend into numbered containers like 1.deglist/
             logger.info("  Entering container directory: %s", subdir.name)
             for inner in sorted(subdir.iterdir()):
@@ -315,12 +332,12 @@ def parse_deg_results(deg_dir: str | Path | None) -> Dict[str, pd.DataFrame]:
         logger.info("  Processing DEG comparison: %s", comparison)
 
         # Find the DEG table in this comparison folder
-        deg_files = _iglob_files(comp_dir, _DEG_FILE_PATTERNS)
+        deg_files = iglob_files(comp_dir, _DEG_FILE_PATTERNS)
         if not deg_files:
             # Also search one level deeper (some deliveries nest further)
             for nested in sorted(comp_dir.iterdir()):
                 if nested.is_dir():
-                    deg_files = _iglob_files(nested, _DEG_FILE_PATTERNS)
+                    deg_files = iglob_files(nested, _DEG_FILE_PATTERNS)
                     if deg_files:
                         break
 
@@ -370,10 +387,10 @@ def _enrich_deg_with_all_compare(
     all_compare_path = None
     search_dirs = [deg_dir]
     for child in sorted(deg_dir.iterdir()):
-        if child.is_dir() and _is_container_dir(child):
+        if child.is_dir() and is_container_dir(child):
             search_dirs.append(child)
     for sdir in search_dirs:
-        candidates = _iglob_files(sdir, ("all_compare*",))
+        candidates = iglob_files(sdir, ("all_compare*",))
         if candidates:
             all_compare_path = candidates[0]
             break
@@ -482,7 +499,8 @@ def _parse_enrichment_comparison_first(
         "DisGeNET": ("disgenet*", "DisGeNET*", "DISGENET*"),
         "DO": ("do", "DO"),
         "Reactome": ("reactome*", "Reactome*", "REACTOME*"),
-        "PPI": ("ppi*", "PPI*"),
+        # PPI directories contain protein-protein interaction networks
+        # (node1, node2, score), not enrichment tables — skip them.
     }
 
     for subdir in sorted(enrichment_dir.iterdir()):
@@ -498,7 +516,7 @@ def _parse_enrichment_comparison_first(
                 continue
 
             db_dir = db_dirs[0]
-            enrich_files = _iglob_files(db_dir, _ENRICH_FILE_PATTERNS)
+            enrich_files = iglob_files(db_dir, _ENRICH_FILE_PATTERNS)
             if not enrich_files:
                 logger.warning("    No enrichment files in %s", db_dir)
                 continue
@@ -562,7 +580,8 @@ def _parse_enrichment_database_first(
         "DisGeNET": ("disgenet*", "DisGeNET*", "DISGENET*"),
         "DO": ("do", "DO"),
         "Reactome": ("reactome*", "Reactome*", "REACTOME*"),
-        "PPI": ("ppi*", "PPI*"),
+        # PPI directories contain protein-protein interaction networks
+        # (node1, node2, score), not enrichment tables — skip them.
     }
 
     for db_name, db_patterns in _DB_DIR_PATTERNS.items():
@@ -578,21 +597,7 @@ def _parse_enrichment_database_first(
             comparison = comp_dir.name
             logger.info("    Comparison: %s", comparison)
 
-            # Try to find enrichment files directly in the comparison dir
-            enrich_files = _iglob_files(comp_dir, _ENRICH_FILE_PATTERNS)
-
-            if not enrich_files:
-                # Look inside regulation sub-dirs (all/, up/, down/) — prefer "all"
-                reg_dirs = sorted(comp_dir.iterdir())
-                # Sort so "all" comes first if it exists
-                reg_dirs_sorted = sorted(
-                    [d for d in reg_dirs if d.is_dir()],
-                    key=lambda d: (0 if d.name.lower() == "all" else 1, d.name.lower()),
-                )
-                for reg_dir in reg_dirs_sorted:
-                    enrich_files = _iglob_files(reg_dir, _ENRICH_FILE_PATTERNS)
-                    if enrich_files:
-                        break
+            enrich_files = _find_files_prefer_all(comp_dir, _ENRICH_FILE_PATTERNS)
 
             if not enrich_files:
                 logger.warning("      No enrichment files found for %s/%s", db_name, comparison)
@@ -666,7 +671,127 @@ def parse_enrichment_results(
 
 
 # ---------------------------------------------------------------------------
-# 5. parse_sample_info
+# 5. parse_ppi_results
+# ---------------------------------------------------------------------------
+
+
+_PPI_DIR_PATTERNS = ("ppi*", "PPI*")
+
+_PPI_FILE_PATTERNS = (
+    "*ppi*.xls",
+    "*ppi*.xlsx",
+    "*ppi*.tsv",
+    "*ppi*.csv",
+    "*ppi*.txt",
+    "*.xls",
+    "*.xlsx",
+)
+
+# Expected columns (lowercase) for PPI interaction tables
+_PPI_NODE1_GENE = ["node1_gene", "source_gene", "gene1", "genea"]
+_PPI_NODE2_GENE = ["node2_gene", "target_gene", "gene2", "geneb"]
+_PPI_NODE1_NAME = ["node1_name", "source_name", "name1", "namea"]
+_PPI_NODE2_NAME = ["node2_name", "target_name", "name2", "nameb"]
+_PPI_SCORE = ["score", "combined_score", "confidence", "weight"]
+
+
+def parse_ppi_results(
+    enrichment_dir: str | Path | None,
+) -> Dict[str, pd.DataFrame]:
+    """Parse PPI network tables from inside the enrichment directory.
+
+    Novogene deliveries place PPI data alongside enrichment databases::
+
+        Enrichment/
+          PPI/
+            CompA_vs_CompB/
+              all/  *_ppi.xls
+
+    Each table contains pairwise protein interactions with columns such as
+    ``node1_gene``, ``node1_name``, ``node2_gene``, ``node2_name``, ``score``.
+
+    Returns ``{comparison_name: DataFrame}`` with standardised columns:
+    ``source``, ``target``, ``source_name``, ``target_name``, ``score``.
+    """
+    results: Dict[str, pd.DataFrame] = {}
+
+    if enrichment_dir is None:
+        return results
+
+    enrichment_dir = Path(enrichment_dir).resolve()
+    if not enrichment_dir.is_dir():
+        return results
+
+    # Locate PPI directory inside enrichment_dir
+    ppi_dirs = _iglob_dirs(enrichment_dir, _PPI_DIR_PATTERNS)
+    if not ppi_dirs:
+        return results
+
+    ppi_root = ppi_dirs[0]
+    logger.info("  Parsing PPI networks from: %s", ppi_root)
+
+    for comp_dir in sorted(ppi_root.iterdir()):
+        if not comp_dir.is_dir():
+            continue
+        comparison = comp_dir.name
+
+        ppi_files = _find_files_prefer_all(comp_dir, _PPI_FILE_PATTERNS)
+
+        if not ppi_files:
+            logger.warning("    No PPI files found for %s", comparison)
+            continue
+
+        fpath = ppi_files[0]
+        logger.info("    PPI %s: %s", comparison, fpath)
+        try:
+            df = read_table_flexible(fpath)
+        except Exception:
+            logger.warning("    Failed to parse PPI file: %s", fpath, exc_info=True)
+            continue
+
+        if df is None or df.empty:
+            continue
+
+        # Standardise column names
+        src_gene = find_column(df, _PPI_NODE1_GENE)
+        tgt_gene = find_column(df, _PPI_NODE2_GENE)
+        src_name = find_column(df, _PPI_NODE1_NAME)
+        tgt_name = find_column(df, _PPI_NODE2_NAME)
+        score_col = find_column(df, _PPI_SCORE)
+
+        rename_map: dict[str, str] = {}
+        if src_gene:
+            rename_map[src_gene] = "source"
+        if tgt_gene:
+            rename_map[tgt_gene] = "target"
+        if src_name:
+            rename_map[src_name] = "source_name"
+        if tgt_name:
+            rename_map[tgt_name] = "target_name"
+        if score_col:
+            rename_map[score_col] = "score"
+
+        df = df.rename(columns=rename_map)
+
+        # Ensure at least source and target exist
+        if "source" not in df.columns or "target" not in df.columns:
+            # Fall back: use first two columns as source/target
+            if len(df.columns) >= 2:
+                df = df.rename(columns={df.columns[0]: "source", df.columns[1]: "target"})
+            else:
+                logger.warning("    PPI table has fewer than 2 columns; skipping %s", fpath)
+                continue
+
+        results[comparison] = df
+        logger.info("      -> %d interactions", len(df))
+
+    if results:
+        logger.info("  Parsed PPI for %d comparisons", len(results))
+    return results
+
+
+# ---------------------------------------------------------------------------
+# 6. parse_sample_info
 # ---------------------------------------------------------------------------
 
 # Recognised column names (lowercase) for the sample identifier
@@ -824,11 +949,15 @@ def ingest_all(data_dir: str | Path, config: Optional[Dict[str, Any]] = None) ->
     logger.info("--- Enrichment results ---")
     enrichment = parse_enrichment_results(structure["enrichment_dir"])
 
-    # Step 5 – parse sample info
+    # Step 5 – parse PPI networks
+    logger.info("--- PPI networks ---")
+    ppi = parse_ppi_results(structure["enrichment_dir"])
+
+    # Step 6 – parse sample info
     logger.info("--- Sample info ---")
     sample_info = parse_sample_info(structure["sample_info_file"])
 
-    # Step 6 – infer groups
+    # Step 7 – infer groups
     if sample_info is not None and not sample_info.empty:
         groups: Dict[str, Any] = {
             "groups": sorted(sample_info["group"].unique().tolist()),
@@ -850,6 +979,7 @@ def ingest_all(data_dir: str | Path, config: Optional[Dict[str, Any]] = None) ->
                 expression["tpm"] is not None)
     logger.info("  DEG comparisons     : %d", len(deg))
     logger.info("  Enrichment results  : %d comparisons", len(enrichment))
+    logger.info("  PPI networks        : %d comparisons", len(ppi))
     logger.info("  Sample info         : %s", "loaded" if sample_info is not None else "not available")
     logger.info("  Groups              : %s", groups.get("groups", []))
     logger.info("  Total files found   : %d", len(structure["discovered_files"]))
@@ -860,6 +990,7 @@ def ingest_all(data_dir: str | Path, config: Optional[Dict[str, Any]] = None) ->
         "expression": expression,
         "deg": deg,
         "enrichment": enrichment,
+        "ppi": ppi,
         "sample_info": sample_info,
         "groups": groups,
     }

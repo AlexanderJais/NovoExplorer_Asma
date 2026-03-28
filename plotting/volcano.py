@@ -18,23 +18,9 @@ from plotting.theme import (
     VOLCANO_COLORS,
     apply_plotly_theme,
     apply_matplotlib_theme,
+    classify_genes,
     format_axis_label,
 )
-
-
-def _classify_genes(
-    deg_df: pd.DataFrame,
-    padj_threshold: float,
-    log2fc_threshold: float,
-) -> pd.Series:
-    """Return a Series of 'up', 'down', or 'ns' for each gene."""
-    sig = deg_df["padj"] < padj_threshold
-    up = sig & (deg_df["log2fc"] >= log2fc_threshold)
-    down = sig & (deg_df["log2fc"] <= -log2fc_threshold)
-    category = pd.Series("ns", index=deg_df.index)
-    category[up] = "up"
-    category[down] = "down"
-    return category
 
 
 def _top_significant(
@@ -91,7 +77,7 @@ def create_volcano_plotly(
     if missing:
         raise ValueError(f"DEG DataFrame missing required columns: {missing}")
 
-    df = deg_df.dropna(subset=["padj", "log2fc"]).copy()
+    df = deg_df.dropna(subset=["padj", "log2fc"])
 
     if df.empty:
         fig = go.Figure()
@@ -109,7 +95,7 @@ def create_volcano_plotly(
     if "gene_name" not in df.columns:
         df["gene_name"] = df.index.astype(str)
     df["neg_log10_padj"] = -np.log10(df["padj"].clip(lower=1e-300))
-    category = _classify_genes(df, padj_threshold, log2fc_threshold)
+    category = classify_genes(df, padj_threshold, log2fc_threshold)
 
     fig = go.Figure()
 
@@ -237,11 +223,11 @@ def create_volcano_matplotlib(
     if missing:
         raise ValueError(f"DEG DataFrame missing required columns: {missing}")
 
-    df = deg_df.dropna(subset=["padj", "log2fc"]).copy()
+    df = deg_df.dropna(subset=["padj", "log2fc"])
     if "gene_name" not in df.columns:
         df["gene_name"] = df.index.astype(str)
     df["neg_log10_padj"] = -np.log10(df["padj"].clip(lower=1e-300))
-    category = _classify_genes(df, padj_threshold, log2fc_threshold)
+    category = classify_genes(df, padj_threshold, log2fc_threshold)
 
     fig, ax = plt.subplots(figsize=(5, 4))
 
