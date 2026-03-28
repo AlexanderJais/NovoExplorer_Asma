@@ -172,24 +172,114 @@ def _all_gene_names(deg: dict[str, pd.DataFrame]) -> list[str]:
 
 
 # ---------------------------------------------------------------------------
-# Sidebar: folder selection and metadata
+# Sidebar: folder browser
 # ---------------------------------------------------------------------------
+
+
+def _list_subdirs(parent: Path) -> list[str]:
+    """Return sorted subdirectory names under *parent*."""
+    try:
+        return sorted(
+            d.name for d in parent.iterdir()
+            if d.is_dir() and not d.name.startswith(".")
+        )
+    except PermissionError:
+        return []
+
+
+def _looks_like_novogene(p: Path) -> bool:
+    """Quick check: does this folder contain Differential/ or Enrichment/?"""
+    for child in ("Differential", "differential", "Enrichment", "enrichment"):
+        if (p / child).is_dir():
+            return True
+    return False
+
 
 st.sidebar.title("Novogene Explorer")
 
-# Accept path from CLI argument or sidebar input
-default_path = sys.argv[-1] if len(sys.argv) > 1 and Path(sys.argv[-1]).is_dir() else ""
-data_dir = st.sidebar.text_input(
-    "Data folder path",
-    value=st.session_state.get("data_dir", default_path),
-    help="Root folder of the Novogene delivery (containing Differential/ and Enrichment/)",
-)
-st.session_state["data_dir"] = data_dir
+# Determine initial path: CLI arg > session state > home directory
+_cli_path = sys.argv[-1] if len(sys.argv) > 1 and Path(sys.argv[-1]).is_dir() else ""
+if "data_dir" not in st.session_state:
+    st.session_state["data_dir"] = _cli_path
+if "browse_dir" not in st.session_state:
+    st.session_state["browse_dir"] = (
+        _cli_path if _cli_path else str(Path.home())
+    )
 
+# --- Folder browser ---
+st.sidebar.subheader("Select data folder")
+
+# Editable path (user can paste a full path)
+browse_dir = st.sidebar.text_input(
+    "Navigate to",
+    value=st.session_state["browse_dir"],
+    key="_browse_input",
+    help="Type a path or use the folder list below to navigate",
+)
+st.session_state["browse_dir"] = browse_dir
+browse_path = Path(browse_dir)
+
+if browse_path.is_dir():
+    # Show parent-navigation button
+    col_up, col_select = st.sidebar.columns([1, 2])
+    with col_up:
+        if browse_path.parent != browse_path:  # not filesystem root
+            if st.button(".. (up)", key="browse_up", use_container_width=True):
+                st.session_state["browse_dir"] = str(browse_path.parent)
+                st.rerun()
+    with col_select:
+        if _looks_like_novogene(browse_path):
+            if st.button("Use this folder", key="browse_select", type="primary", use_container_width=True):
+                st.session_state["data_dir"] = str(browse_path)
+                st.rerun()
+
+    # List subdirectories
+    subdirs = _list_subdirs(browse_path)
+    if subdirs:
+        # Annotate folders that look like Novogene deliveries
+        labels = []
+        for d in subdirs:
+            child = browse_path / d
+            if _looks_like_novogene(child):
+                labels.append(f"{d}  [Novogene]")
+            else:
+                labels.append(d)
+
+        chosen = st.sidebar.radio(
+            "Subfolders",
+            labels,
+            index=None,
+            key="_browse_radio",
+            label_visibility="collapsed",
+        )
+        if chosen is not None:
+            # Strip the annotation suffix
+            folder_name = chosen.split("  [")[0]
+            child_path = browse_path / folder_name
+            if child_path.is_dir():
+                # Double-duty: navigate into it AND auto-select if it's Novogene
+                st.session_state["browse_dir"] = str(child_path)
+                if _looks_like_novogene(child_path):
+                    st.session_state["data_dir"] = str(child_path)
+                st.rerun()
+    else:
+        st.sidebar.caption("(no subfolders)")
+else:
+    st.sidebar.warning("Path does not exist.")
+
+st.sidebar.divider()
+
+# Resolve selected data folder
+data_dir = st.session_state.get("data_dir", "")
 if not data_dir or not Path(data_dir).is_dir():
     st.title("Novogene RNA-Seq Explorer")
-    st.info("Enter the path to your Novogene data folder in the sidebar to get started.")
+    st.info(
+        "Navigate to your Novogene data folder using the sidebar browser, "
+        "then click **Use this folder** or select a folder marked **[Novogene]**."
+    )
     st.stop()
+
+st.sidebar.success(f"**Loaded:** {Path(data_dir).name}")
 
 # Load data
 structure = load_structure(data_dir)

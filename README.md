@@ -17,14 +17,26 @@ pip install streamlit plotly pandas numpy
 ```bash
 cd novoview
 
-# Option 1: pass the data folder path as an argument
-streamlit run novogene_explorer.py -- /path/to/your/novogene_data
-
-# Option 2: launch without arguments and enter the path in the sidebar
+# Option 1: just launch — browse to your data folder inside the app
 streamlit run novogene_explorer.py
+
+# Option 2: pass a path to open directly
+streamlit run novogene_explorer.py -- /path/to/your/novogene_data
 ```
 
 The app opens at **http://localhost:8501**.
+
+### Selecting Your Data Folder
+
+The sidebar contains a **folder browser**:
+
+1. The "Navigate to" field shows your current location (defaults to your home directory). You can type or paste a full path here.
+2. Subfolders are listed below — click any to navigate into it.
+3. Folders containing `Differential/` or `Enrichment/` are tagged **[Novogene]** and auto-selected when clicked.
+4. Use the **.. (up)** button to go to the parent directory.
+5. Click **Use this folder** to confirm your selection.
+
+You can change the data folder at any time without restarting the app.
 
 ### Expected Folder Structure
 
@@ -95,7 +107,7 @@ Numbered container folders (`1.deglist/`, `2.cluster/`) are automatically unwrap
 
 ### Sidebar
 
-- **Data folder path**: enter or change the path to your Novogene data
+- **Folder browser**: navigate the filesystem to find and select your Novogene data folder. Novogene-compatible folders are auto-detected and tagged.
 - **Metrics**: number of comparisons, genes, enrichment comparisons, sample groups
 - **Log panel**: collapsible expander showing all pipeline log messages (file discovery, parsing, warnings). Useful for debugging when data isn't loading as expected. Includes a "Clear log" button.
 
