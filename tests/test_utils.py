@@ -123,6 +123,24 @@ class TestStandardizeEnrichmentColumns:
         # "Genes" should NOT have been claimed by gene_count
         assert result["genes"].iloc[0] == "BRCA1/TP53"
 
+    def test_novogene_kegg_columns(self):
+        """Novogene KEGG uses KEGGID (no underscore) and geneName."""
+        df = pd.DataFrame({
+            "KEGGID": ["hsa04110"],
+            "Description": ["Cell cycle"],
+            "GeneRatio": ["5/150"],
+            "BgRatio": ["50/20000"],
+            "pvalue": [0.001],
+            "padj": [0.01],
+            "geneID": ["BRCA1/TP53/MYC"],
+            "geneName": ["BRCA1/TP53/MYC"],
+            "Count": [3],
+        })
+        result = standardize_enrichment_columns(df)
+        assert "term_id" in result.columns
+        assert result["term_id"].iloc[0] == "hsa04110"
+        assert "genes" in result.columns
+
 
 # -----------------------------------------------------------------------
 # read_table_flexible
