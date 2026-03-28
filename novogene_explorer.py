@@ -377,7 +377,7 @@ with tab_overview:
                 name="Upregulated", marker_color=UP_COLOR,
             ))
             fig.add_trace(go.Bar(
-                x=diff_stat["compare"], y=diff_stat.get("down", pd.Series(dtype=float)),
+                x=diff_stat["compare"], y=diff_stat.get("down", pd.Series(0, index=diff_stat.index)),
                 name="Downregulated", marker_color=DOWN_COLOR,
             ))
             fig.update_layout(
@@ -628,7 +628,7 @@ with tab_comparison:
                     mode="markers",
                     marker=dict(color=color, size=4, opacity=0.6),
                     name=cat.capitalize() if cat != "ns" else "NS",
-                    text=subset.get("gene_name", pd.Series(dtype=str)),
+                    text=subset["gene_name"] if "gene_name" in subset.columns else subset.index.astype(str),
                     hovertemplate="<b>%{text}</b><br>log2FC: %{x:.3f}<br>-log10(padj): %{y:.2f}<extra></extra>",
                 ))
 
@@ -919,7 +919,7 @@ with tab_ma:
                     mode="markers",
                     marker=dict(color=color, size=4, opacity=0.5),
                     name=cat.capitalize() if cat != "ns" else "NS",
-                    text=subset.get("gene_name", pd.Series(dtype=str)),
+                    text=subset["gene_name"] if "gene_name" in subset.columns else subset.index.astype(str),
                     hovertemplate="<b>%{text}</b><br>log10(baseMean): %{x:.2f}<br>log2FC: %{y:.3f}<extra></extra>",
                 ))
             fig.add_hline(y=0, line_dash="dash", line_color="gray", line_width=0.8)
