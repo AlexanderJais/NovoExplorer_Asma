@@ -89,6 +89,7 @@ from pipeline.utils import (
     standardize_deg_columns,
     standardize_enrichment_columns,
 )
+from plotting.ppi_network import build_ppi_network
 
 # ---------------------------------------------------------------------------
 # Streamlit page config
@@ -1477,6 +1478,66 @@ with tab_ppi:
             else:
                 ppi_view = ppi_filtered
 
+            # ---- log2FC map for colouring ----
+            fc_map = _build_fc_map(deg.get(ppi_comp, pd.DataFrame()))
+
+            # ---- Network visualization (primary view) ----
+            st.subheader("Interaction Network")
+
+            net_col1, net_col2 = st.columns([1, 1])
+            with net_col1:
+                net_layout = st.selectbox(
+                    "Layout algorithm",
+                    ["spring", "kamada_kawai", "circular"],
+                    index=0,
+                    key="ppi_layout",
+                    help="Spring: force-directed (good general purpose). "
+                         "Kamada-Kawai: optimised distances (≤500 nodes). "
+                         "Circular: nodes arranged in a circle.",
+                )
+            with net_col2:
+                max_edges_net = st.slider(
+                    "Max interactions to plot",
+                    50, 2000, min(500, len(ppi_view)),
+                    key="ppi_max_edges",
+                    help="Limit edges for performance. Highest-scoring edges are kept.",
+                )
+
+            # Take top-scoring edges for performance
+            if len(ppi_view) > max_edges_net and "score" in ppi_view.columns:
+                ppi_net = ppi_view.nlargest(max_edges_net, "score")
+            else:
+                ppi_net = ppi_view.head(max_edges_net)
+
+            fig_network = build_ppi_network(
+                ppi_net,
+                src_col=src_col,
+                tgt_col=tgt_col,
+                score_col="score",
+                fc_map=fc_map if fc_map else None,
+                layout=net_layout,
+                up_color=UP_COLOR,
+                down_color=DOWN_COLOR,
+                ns_color=NS_COLOR,
+            )
+            st.plotly_chart(fig_network, use_container_width=True)
+
+            if fc_map:
+                legend_cols = st.columns(4)
+                legend_cols[0].markdown(
+                    f'<span style="color:{UP_COLOR}">&#11044;</span> Upregulated',
+                    unsafe_allow_html=True,
+                )
+                legend_cols[1].markdown(
+                    f'<span style="color:{DOWN_COLOR}">&#11044;</span> Downregulated',
+                    unsafe_allow_html=True,
+                )
+                legend_cols[2].markdown(
+                    f'<span style="color:{NS_COLOR}">&#11044;</span> Not significant / N/A',
+                    unsafe_allow_html=True,
+                )
+                legend_cols[3].markdown("Node size = number of connections")
+
             # ---- Hub gene analysis (top connected genes) ----
             st.subheader("Hub Genes (most connected)")
             degree_counts = Counter(
@@ -1490,7 +1551,6 @@ with tab_ppi:
                 hub_df = pd.DataFrame(top_hubs, columns=["Gene", "Connections"])
 
                 # Annotate with log2FC from DEG data if available
-                fc_map = _build_fc_map(deg.get(ppi_comp, pd.DataFrame()))
                 if fc_map:
                     hub_df["log2FC"] = hub_df["Gene"].str.upper().map(fc_map)
 

@@ -16,3 +16,4 @@ xlrd>=2.0
 h5py>=3.9
 pyyaml>=6.0
 kaleido>=0.2
+networkx>=3.1
