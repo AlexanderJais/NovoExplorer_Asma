@@ -209,49 +209,51 @@ if "browse_dir" not in st.session_state:
 # --- Folder browser ---
 st.sidebar.subheader("Select data folder")
 
-
-def _open_folder_dialog() -> str | None:
-    """Open a native OS folder-picker dialog and return the chosen path."""
-    try:
-        import tkinter as tk
-        from tkinter import filedialog
-
-        root = tk.Tk()
-        root.withdraw()          # hide the root window
-        root.wm_attributes("-topmost", 1)  # dialog on top
-        folder = filedialog.askdirectory(
-            title="Select your Novogene data folder",
-            initialdir=st.session_state.get("browse_dir", str(Path.home())),
-        )
-        root.destroy()
-        return folder if folder else None
-    except Exception:
-        return None
-
-
-if st.sidebar.button("Browse...", type="primary", use_container_width=True):
-    chosen_folder = _open_folder_dialog()
-    if chosen_folder:
-        st.session_state["browse_dir"] = chosen_folder
-        if _looks_like_novogene(Path(chosen_folder)):
-            st.session_state["data_dir"] = chosen_folder
-        st.rerun()
-
-# Text input fallback: paste / type a path directly
+# Text input: paste or type a full path
 browse_dir = st.sidebar.text_input(
-    "Or paste a path",
+    "Paste or type folder path",
     value=st.session_state["browse_dir"],
     key="_browse_input",
-    help="Type or paste the full path to your data folder, then press Enter",
+    help="Enter the full path to your Novogene data folder and press Enter",
 )
 if browse_dir != st.session_state["browse_dir"]:
     st.session_state["browse_dir"] = browse_dir
 
 browse_path = Path(browse_dir)
+
 if browse_path.is_dir():
-    if st.sidebar.button("Use this folder", key="browse_select", use_container_width=True):
-        st.session_state["data_dir"] = str(browse_path)
-        st.rerun()
+    # Quick-navigate: selectbox with subdirectories
+    subdirs = _list_subdirs(browse_path)
+    if subdirs:
+        labels = []
+        for d in subdirs:
+            child = browse_path / d
+            tag = "  \u2705" if _looks_like_novogene(child) else ""
+            labels.append(f"{d}{tag}")
+
+        chosen = st.sidebar.selectbox(
+            "Subfolders",
+            ["(stay here)"] + labels,
+            index=0,
+            key="_browse_select",
+        )
+        if chosen != "(stay here)":
+            folder_name = chosen.replace("  \u2705", "")
+            st.session_state["browse_dir"] = str(browse_path / folder_name)
+            st.rerun()
+
+    # Navigation buttons
+    col_up, col_use = st.sidebar.columns(2)
+    with col_up:
+        if browse_path.parent != browse_path:
+            if st.button("\u2191 Up", key="browse_up", use_container_width=True):
+                st.session_state["browse_dir"] = str(browse_path.parent)
+                st.rerun()
+    with col_use:
+        if st.button("Use this folder", key="browse_use", type="primary", use_container_width=True):
+            st.session_state["data_dir"] = str(browse_path)
+            st.rerun()
+
     if _looks_like_novogene(browse_path):
         st.sidebar.success("Novogene data detected")
 else:
