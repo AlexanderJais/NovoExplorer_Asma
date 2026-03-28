@@ -78,6 +78,7 @@ from pipeline.ingest import (
     discover_novogene_structure,
     parse_deg_results,
     parse_enrichment_results,
+    parse_ppi_results,
     parse_sample_info,
     _is_container_dir,
     _iglob_files,
@@ -127,6 +128,11 @@ def load_deg(deg_dir: str | None) -> dict[str, pd.DataFrame]:
 @st.cache_data(show_spinner="Parsing enrichment results…")
 def load_enrichment(enrichment_dir: str | None) -> dict[str, dict[str, pd.DataFrame]]:
     return parse_enrichment_results(enrichment_dir)
+
+
+@st.cache_data(show_spinner="Parsing PPI networks…")
+def load_ppi(enrichment_dir: str | None) -> dict[str, pd.DataFrame]:
+    return parse_ppi_results(enrichment_dir)
 
 
 @st.cache_data(show_spinner="Reading diff_stat.xls…")
@@ -301,6 +307,7 @@ st.sidebar.success(f"**Loaded:** {Path(data_dir).name}")
 structure = load_structure(data_dir)
 deg = load_deg(str(structure["deg_dir"]) if structure["deg_dir"] else None)
 enrichment = load_enrichment(str(structure["enrichment_dir"]) if structure["enrichment_dir"] else None)
+ppi = load_ppi(str(structure["enrichment_dir"]) if structure["enrichment_dir"] else None)
 diff_stat = load_diff_stat(str(structure["deg_dir"]) if structure["deg_dir"] else None)
 sample_info = load_sample_info(str(structure["sample_info_file"]) if structure["sample_info_file"] else None)
 gene_names = _all_gene_names(deg)
@@ -311,6 +318,8 @@ st.sidebar.metric("Comparisons", len(deg))
 st.sidebar.metric("Genes tracked", f"{len(gene_names):,}")
 if enrichment:
     st.sidebar.metric("Enrichment comparisons", len(enrichment))
+if ppi:
+    st.sidebar.metric("PPI networks", len(ppi))
 if sample_info is not None and "group" in sample_info.columns:
     n_groups = sample_info["group"].nunique()
     st.sidebar.metric("Sample groups", n_groups)
@@ -348,9 +357,11 @@ with st.sidebar.expander("Log", expanded=False):
 # ---------------------------------------------------------------------------
 
 (tab_overview, tab_gene, tab_comparison, tab_enrichment,
- tab_ma, tab_venn, tab_ranked, tab_degsummary, tab_pathway, tab_export) = st.tabs([
+ tab_ma, tab_venn, tab_ranked, tab_degsummary, tab_pathway, tab_ppi,
+ tab_export) = st.tabs([
     "Overview", "Gene Explorer", "Comparison Browser", "Enrichment",
-    "MA Plot", "Venn / UpSet", "Ranked Genes", "DEG Summary", "Pathway Viewer", "Export",
+    "MA Plot", "Venn / UpSet", "Ranked Genes", "DEG Summary", "Pathway Viewer", "PPI Network",
+    "Export",
 ])
 
 
@@ -1382,7 +1393,157 @@ with tab_pathway:
 
 
 # =========================================================================
-# TAB 10: Export / Report
+# TAB 10: PPI Network
+# =========================================================================
+with tab_ppi:
+    st.header("PPI Network")
+    st.caption("Explore protein–protein interaction networks from Novogene PPI analysis.")
+
+    if not ppi:
+        st.warning("No PPI data loaded.")
+    else:
+        ppi_comp = st.selectbox("Select comparison", sorted(ppi.keys()), key="ppi_comp")
+        ppi_df = ppi[ppi_comp]
+
+        st.caption(f"**{ppi_comp}** — {len(ppi_df):,} interactions")
+
+        # ---- Filters ----
+        col_f1, col_f2 = st.columns(2)
+        with col_f1:
+            min_score = float(ppi_df["score"].min()) if "score" in ppi_df.columns else 0.0
+            max_score = float(ppi_df["score"].max()) if "score" in ppi_df.columns else 1.0
+            if min_score < max_score and "score" in ppi_df.columns:
+                score_thresh = st.slider(
+                    "Min interaction score",
+                    min_value=min_score,
+                    max_value=max_score,
+                    value=min_score + (max_score - min_score) * 0.5,
+                    key="ppi_score",
+                )
+                ppi_filtered = ppi_df[ppi_df["score"] >= score_thresh].copy()
+            else:
+                ppi_filtered = ppi_df.copy()
+
+        with col_f2:
+            st.metric("Interactions (filtered)", f"{len(ppi_filtered):,}")
+
+        if ppi_filtered.empty:
+            st.info("No interactions above this score threshold.")
+        else:
+            # ---- Gene search ----
+            # Build a set of all genes in the network
+            src_col = "source_name" if "source_name" in ppi_filtered.columns else "source"
+            tgt_col = "target_name" if "target_name" in ppi_filtered.columns else "target"
+            all_ppi_genes = sorted(set(
+                ppi_filtered[src_col].dropna().astype(str).tolist()
+                + ppi_filtered[tgt_col].dropna().astype(str).tolist()
+            ))
+
+            st.metric("Unique genes in network", f"{len(all_ppi_genes):,}")
+
+            gene_search = st.multiselect(
+                "Filter by gene(s)",
+                options=all_ppi_genes,
+                default=[],
+                key="ppi_gene_filter",
+                help="Select one or more genes to see their interactions.",
+            )
+
+            if gene_search:
+                gene_set = {g.upper() for g in gene_search}
+                mask = (
+                    ppi_filtered[src_col].str.upper().isin(gene_set)
+                    | ppi_filtered[tgt_col].str.upper().isin(gene_set)
+                )
+                ppi_view = ppi_filtered[mask].copy()
+                st.caption(f"Showing {len(ppi_view):,} interactions involving selected gene(s).")
+            else:
+                ppi_view = ppi_filtered
+
+            # ---- Hub gene analysis (top connected genes) ----
+            st.subheader("Hub Genes (most connected)")
+            from collections import Counter
+            degree_counts = Counter(
+                ppi_view[src_col].dropna().astype(str).tolist()
+                + ppi_view[tgt_col].dropna().astype(str).tolist()
+            )
+            top_n = st.slider("Number of top hub genes", 5, 50, 20, key="ppi_top_n")
+            top_hubs = degree_counts.most_common(top_n)
+
+            if top_hubs:
+                hub_df = pd.DataFrame(top_hubs, columns=["Gene", "Connections"])
+
+                # Annotate with log2FC from DEG data if available
+                comp_deg = deg.get(ppi_comp, pd.DataFrame())
+                if not comp_deg.empty and "gene_name" in comp_deg.columns:
+                    fc_map = {}
+                    for _, row in comp_deg.iterrows():
+                        gn = str(row.get("gene_name", ""))
+                        if gn and "log2fc" in row.index:
+                            fc_map[gn.upper()] = row["log2fc"]
+                        gid = str(row.get("gene_id", ""))
+                        if gid and "log2fc" in row.index:
+                            fc_map[gid.upper()] = row["log2fc"]
+                    hub_df["log2FC"] = hub_df["Gene"].str.upper().map(fc_map)
+
+                # Bar chart of hub genes
+                fig_hub = go.Figure()
+                if "log2FC" in hub_df.columns:
+                    colors = [
+                        UP_COLOR if v > 0 else DOWN_COLOR if v < 0 else NS_COLOR
+                        for v in hub_df["log2FC"].fillna(0)
+                    ]
+                    fig_hub.add_trace(go.Bar(
+                        x=hub_df["Gene"],
+                        y=hub_df["Connections"],
+                        marker_color=colors,
+                        hovertemplate=(
+                            "<b>%{x}</b><br>"
+                            "Connections: %{y}<br>"
+                            "log2FC: %{customdata:.3f}<extra></extra>"
+                        ),
+                        customdata=hub_df["log2FC"].fillna(0),
+                    ))
+                else:
+                    fig_hub.add_trace(go.Bar(
+                        x=hub_df["Gene"],
+                        y=hub_df["Connections"],
+                        marker_color=WONG[0],
+                        hovertemplate="<b>%{x}</b><br>Connections: %{y}<extra></extra>",
+                    ))
+                fig_hub.update_layout(
+                    title=dict(text="Hub Genes by Connection Count", font=dict(size=16)),
+                    xaxis_title="Gene",
+                    yaxis_title="Number of Interactions",
+                    xaxis_tickangle=-45,
+                    height=max(400, 20 * len(hub_df) + 200),
+                    font=dict(size=14),
+                )
+                st.plotly_chart(fig_hub, use_container_width=True)
+
+                st.dataframe(hub_df, hide_index=True, use_container_width=True)
+
+            # ---- Full interaction table ----
+            st.subheader("Interaction Table")
+            # Show most useful columns in a readable order
+            display_cols = []
+            for c in [src_col, tgt_col, "source", "target", "score"]:
+                if c in ppi_view.columns and c not in display_cols:
+                    display_cols.append(c)
+            # Add any remaining columns
+            for c in ppi_view.columns:
+                if c not in display_cols:
+                    display_cols.append(c)
+            st.dataframe(
+                ppi_view[display_cols],
+                hide_index=True,
+                use_container_width=True,
+                height=min(600, 35 * len(ppi_view) + 38),
+            )
+
+
+# =========================================================================
+# TAB 11: Export / Report
 # =========================================================================
 with tab_export:
     st.header("Export / Report")

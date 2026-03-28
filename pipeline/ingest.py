@@ -668,7 +668,147 @@ def parse_enrichment_results(
 
 
 # ---------------------------------------------------------------------------
-# 5. parse_sample_info
+# 5. parse_ppi_results
+# ---------------------------------------------------------------------------
+
+
+_PPI_DIR_PATTERNS = ("ppi*", "PPI*")
+
+_PPI_FILE_PATTERNS = (
+    "*ppi*.xls",
+    "*ppi*.xlsx",
+    "*ppi*.tsv",
+    "*ppi*.csv",
+    "*ppi*.txt",
+    "*.xls",
+    "*.xlsx",
+)
+
+# Expected columns (lowercase) for PPI interaction tables
+_PPI_NODE1_GENE = {"node1_gene", "source_gene", "gene1", "genea"}
+_PPI_NODE2_GENE = {"node2_gene", "target_gene", "gene2", "geneb"}
+_PPI_NODE1_NAME = {"node1_name", "source_name", "name1", "namea"}
+_PPI_NODE2_NAME = {"node2_name", "target_name", "name2", "nameb"}
+_PPI_SCORE = {"score", "combined_score", "confidence", "weight"}
+
+
+def _find_ppi_col(df_columns: list[str], aliases: set[str]) -> Optional[str]:
+    """Return the first column in *df_columns* matching any alias (case-insensitive)."""
+    lower_map = {c.lower().strip(): c for c in df_columns}
+    for alias in aliases:
+        if alias in lower_map:
+            return lower_map[alias]
+    return None
+
+
+def parse_ppi_results(
+    enrichment_dir: str | Path | None,
+) -> Dict[str, pd.DataFrame]:
+    """Parse PPI network tables from inside the enrichment directory.
+
+    Novogene deliveries place PPI data alongside enrichment databases::
+
+        Enrichment/
+          PPI/
+            CompA_vs_CompB/
+              all/  *_ppi.xls
+
+    Each table contains pairwise protein interactions with columns such as
+    ``node1_gene``, ``node1_name``, ``node2_gene``, ``node2_name``, ``score``.
+
+    Returns ``{comparison_name: DataFrame}`` with standardised columns:
+    ``source``, ``target``, ``source_name``, ``target_name``, ``score``.
+    """
+    results: Dict[str, pd.DataFrame] = {}
+
+    if enrichment_dir is None:
+        return results
+
+    enrichment_dir = Path(enrichment_dir).resolve()
+    if not enrichment_dir.is_dir():
+        return results
+
+    # Locate PPI directory inside enrichment_dir
+    ppi_dirs = _iglob_dirs(enrichment_dir, _PPI_DIR_PATTERNS)
+    if not ppi_dirs:
+        return results
+
+    ppi_root = ppi_dirs[0]
+    logger.info("  Parsing PPI networks from: %s", ppi_root)
+
+    for comp_dir in sorted(ppi_root.iterdir()):
+        if not comp_dir.is_dir():
+            continue
+        comparison = comp_dir.name
+
+        # Find files directly or inside regulation sub-dirs (prefer "all")
+        ppi_files = _iglob_files(comp_dir, _PPI_FILE_PATTERNS)
+        if not ppi_files:
+            reg_dirs = sorted(
+                [d for d in comp_dir.iterdir() if d.is_dir()],
+                key=lambda d: (0 if d.name.lower() == "all" else 1, d.name.lower()),
+            )
+            for reg_dir in reg_dirs:
+                ppi_files = _iglob_files(reg_dir, _PPI_FILE_PATTERNS)
+                if ppi_files:
+                    break
+
+        if not ppi_files:
+            logger.warning("    No PPI files found for %s", comparison)
+            continue
+
+        fpath = ppi_files[0]
+        logger.info("    PPI %s: %s", comparison, fpath)
+        try:
+            df = read_table_flexible(fpath)
+        except Exception:
+            logger.warning("    Failed to parse PPI file: %s", fpath, exc_info=True)
+            continue
+
+        if df is None or df.empty:
+            continue
+
+        # Standardise column names
+        cols = list(df.columns)
+        src_gene = _find_ppi_col(cols, _PPI_NODE1_GENE)
+        tgt_gene = _find_ppi_col(cols, _PPI_NODE2_GENE)
+        src_name = _find_ppi_col(cols, _PPI_NODE1_NAME)
+        tgt_name = _find_ppi_col(cols, _PPI_NODE2_NAME)
+        score_col = _find_ppi_col(cols, _PPI_SCORE)
+
+        rename_map: dict[str, str] = {}
+        if src_gene:
+            rename_map[src_gene] = "source"
+        if tgt_gene:
+            rename_map[tgt_gene] = "target"
+        if src_name:
+            rename_map[src_name] = "source_name"
+        if tgt_name:
+            rename_map[tgt_name] = "target_name"
+        if score_col:
+            rename_map[score_col] = "score"
+
+        df = df.rename(columns=rename_map)
+
+        # Ensure at least source and target exist
+        if "source" not in df.columns or "target" not in df.columns:
+            # Fall back: use first two columns as source/target
+            if len(df.columns) >= 2:
+                df = df.rename(columns={df.columns[0]: "source", df.columns[1]: "target"})
+            else:
+                logger.warning("    PPI table has fewer than 2 columns; skipping %s", fpath)
+                continue
+
+        results[comparison] = df
+        logger.info("      -> %d interactions", len(df))
+
+    if results:
+        logger.info("  Parsed PPI for %d comparisons", len(results))
+    return results
+
+
+# ---------------------------------------------------------------------------
+# 6. parse_sample_info
 # ---------------------------------------------------------------------------
 
 # Recognised column names (lowercase) for the sample identifier
@@ -826,11 +966,15 @@ def ingest_all(data_dir: str | Path, config: Optional[Dict[str, Any]] = None) ->
     logger.info("--- Enrichment results ---")
     enrichment = parse_enrichment_results(structure["enrichment_dir"])
 
-    # Step 5 – parse sample info
+    # Step 5 – parse PPI networks
+    logger.info("--- PPI networks ---")
+    ppi = parse_ppi_results(structure["enrichment_dir"])
+
+    # Step 6 – parse sample info
     logger.info("--- Sample info ---")
     sample_info = parse_sample_info(structure["sample_info_file"])
 
-    # Step 6 – infer groups
+    # Step 7 – infer groups
     if sample_info is not None and not sample_info.empty:
         groups: Dict[str, Any] = {
             "groups": sorted(sample_info["group"].unique().tolist()),
@@ -852,6 +996,7 @@ def ingest_all(data_dir: str | Path, config: Optional[Dict[str, Any]] = None) ->
                 expression["tpm"] is not None)
     logger.info("  DEG comparisons     : %d", len(deg))
     logger.info("  Enrichment results  : %d comparisons", len(enrichment))
+    logger.info("  PPI networks        : %d comparisons", len(ppi))
     logger.info("  Sample info         : %s", "loaded" if sample_info is not None else "not available")
     logger.info("  Groups              : %s", groups.get("groups", []))
     logger.info("  Total files found   : %d", len(structure["discovered_files"]))
@@ -862,6 +1007,7 @@ def ingest_all(data_dir: str | Path, config: Optional[Dict[str, Any]] = None) ->
         "expression": expression,
         "deg": deg,
         "enrichment": enrichment,
+        "ppi": ppi,
         "sample_info": sample_info,
         "groups": groups,
     }

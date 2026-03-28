@@ -372,6 +372,30 @@ def tmp_novogene_raw_dir(tmp_path: Path) -> Path:
     })
     _write_tsv(go_comp / "GroupAvsGroupB_GOenrich.xls", go_df)
 
+    # PPI — database-first: Enrichment/PPI/{comparison}/all/*_ppi.xls
+    ppi_root = enrich_dir / "PPI"
+    ppi_root.mkdir()
+    ppi_comp = ppi_root / "GroupAvsGroupB" / "all"
+    ppi_comp.mkdir(parents=True)
+
+    _ppi_genes = _GENE_NAMES[:10]
+    ppi_rows = []
+    for i in range(15):
+        g1 = _RNG.choice(_ppi_genes)
+        g2 = _RNG.choice(_ppi_genes)
+        if g1 != g2:
+            ppi_rows.append({
+                "node1_gene": f"ENSG{i:011d}",
+                "node1_name": g1,
+                "node1_protein": f"9606.ENSP{i:011d}",
+                "node2_gene": f"ENSG{i+100:011d}",
+                "node2_name": g2,
+                "node2_protein": f"9606.ENSP{i+100:011d}",
+                "score": round(_RNG.uniform(0.4, 0.99), 3),
+            })
+    ppi_df = pd.DataFrame(ppi_rows)
+    _write_tsv(ppi_comp / "GroupAvsGroupB_ppi.xls", ppi_df)
+
     # ------------------------------------------------------------------
     # 3. sample_info.txt
     # ------------------------------------------------------------------

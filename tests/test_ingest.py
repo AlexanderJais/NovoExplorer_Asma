@@ -23,6 +23,7 @@ from pipeline.ingest import (
     parse_deg_results,
     parse_enrichment_results,
     parse_expression_matrices,
+    parse_ppi_results,
     parse_sample_info,
 )
 
@@ -400,6 +401,7 @@ class TestIngestAll:
             "expression",
             "deg",
             "enrichment",
+            "ppi",
             "sample_info",
             "groups",
         }
@@ -532,6 +534,38 @@ class TestRawNovogeneDelivery:
         assert "GroupAvsGroupC" in result["deg"]
         assert "GroupAvsGroupB" in result["enrichment"]
         assert result["sample_info"] is not None
+
+    def test_ppi_parsing(self, tmp_novogene_raw_dir: Path) -> None:
+        structure = discover_novogene_structure(tmp_novogene_raw_dir)
+        ppi = parse_ppi_results(structure["enrichment_dir"])
+
+        assert "GroupAvsGroupB" in ppi
+        df = ppi["GroupAvsGroupB"]
+        assert "source" in df.columns
+        assert "target" in df.columns
+        assert "score" in df.columns
+        assert len(df) > 0
+
+    def test_ppi_has_name_columns(self, tmp_novogene_raw_dir: Path) -> None:
+        structure = discover_novogene_structure(tmp_novogene_raw_dir)
+        ppi = parse_ppi_results(structure["enrichment_dir"])
+        df = ppi["GroupAvsGroupB"]
+
+        assert "source_name" in df.columns
+        assert "target_name" in df.columns
+
+    def test_ppi_not_in_enrichment(self, tmp_novogene_raw_dir: Path) -> None:
+        """PPI should not appear as an enrichment database."""
+        structure = discover_novogene_structure(tmp_novogene_raw_dir)
+        enrichment = parse_enrichment_results(structure["enrichment_dir"])
+
+        for comp_data in enrichment.values():
+            assert "PPI" not in comp_data
+
+    def test_ingest_all_includes_ppi(self, tmp_novogene_raw_dir: Path) -> None:
+        result = ingest_all(tmp_novogene_raw_dir)
+        assert "ppi" in result
+        assert "GroupAvsGroupB" in result["ppi"]
 
     def test_infer_groups_from_raw_delivery(self, tmp_novogene_raw_dir: Path) -> None:
         result = ingest_all(tmp_novogene_raw_dir)
