@@ -345,7 +345,98 @@ def parse_deg_results(deg_dir: str | Path | None) -> Dict[str, pd.DataFrame]:
             logger.warning("    -> failed to parse %s", fpath, exc_info=True)
 
     logger.info("  Parsed %d DEG comparisons", len(results))
+
+    # --- Enrich with basemean from all_compare.xls if available ---
+    if deg_dir is not None:
+        results = _enrich_deg_with_all_compare(Path(deg_dir).resolve(), results)
+
     return results
+
+
+def _enrich_deg_with_all_compare(
+    deg_dir: Path,
+    deg_results: Dict[str, pd.DataFrame],
+) -> Dict[str, pd.DataFrame]:
+    """Merge basemean from ``all_compare.xls`` into DEG tables when missing.
+
+    The Novogene ``all_compare.xls`` file (found in ``1.deglist/``) contains
+    per-comparison group mean columns named
+    ``{comparison}_{groupA}`` and ``{comparison}_{groupB}``.  When a DEG table
+    lacks a ``basemean`` column, we compute it as the mean of these two group
+    means.  Count columns (``*_count``) are also used to derive an overall
+    basemean when group-mean columns are not identifiable.
+    """
+    # Find all_compare.xls
+    all_compare_path = None
+    search_dirs = [deg_dir]
+    for child in sorted(deg_dir.iterdir()):
+        if child.is_dir() and _is_container_dir(child):
+            search_dirs.append(child)
+    for sdir in search_dirs:
+        candidates = _iglob_files(sdir, ("all_compare*",))
+        if candidates:
+            all_compare_path = candidates[0]
+            break
+    if all_compare_path is None:
+        return deg_results
+
+    logger.info("  Found all_compare file: %s", all_compare_path)
+    try:
+        ac_df = read_table_flexible(all_compare_path)
+    except Exception:
+        logger.warning("  Failed to parse all_compare file", exc_info=True)
+        return deg_results
+    if ac_df is None or ac_df.empty:
+        return deg_results
+
+    ac_df = standardize_deg_columns(ac_df)
+
+    # Identify gene key column
+    gene_key = "gene_id" if "gene_id" in ac_df.columns else None
+    if gene_key is None:
+        return deg_results
+
+    for comp_name, comp_df in deg_results.items():
+        if "basemean" in comp_df.columns:
+            continue  # already has basemean
+
+        # Strategy 1: find the two group-mean columns for this comparison
+        #   Pattern: {comp_name}_{groupA} and {comp_name}_{groupB}
+        prefix = f"{comp_name}_"
+        group_mean_cols = [
+            c for c in ac_df.columns
+            if c.startswith(prefix)
+            and not c.endswith(("_log2FoldChange", "_pvalue", "_padj",
+                                "_log2fc", "_log2foldchange"))
+            and pd.api.types.is_numeric_dtype(ac_df[c])
+        ]
+        if len(group_mean_cols) >= 2:
+            basemean = ac_df[[gene_key] + group_mean_cols].copy()
+            basemean["basemean"] = basemean[group_mean_cols].mean(axis=1)
+            basemean = basemean[[gene_key, "basemean"]]
+            # Merge into comp_df
+            merge_key = gene_key if gene_key in comp_df.columns else None
+            if merge_key:
+                merged = comp_df.merge(basemean, on=merge_key, how="left")
+                deg_results[comp_name] = merged
+                logger.info("    %s: added basemean from group means (%d cols)",
+                            comp_name, len(group_mean_cols))
+                continue
+
+        # Strategy 2: compute from count columns
+        count_cols = [c for c in ac_df.columns if c.endswith("_count")
+                      and pd.api.types.is_numeric_dtype(ac_df[c])]
+        if count_cols:
+            basemean = ac_df[[gene_key]].copy()
+            basemean["basemean"] = ac_df[count_cols].mean(axis=1)
+            merge_key = gene_key if gene_key in comp_df.columns else None
+            if merge_key:
+                merged = comp_df.merge(basemean, on=merge_key, how="left")
+                deg_results[comp_name] = merged
+                logger.info("    %s: added basemean from %d count columns",
+                            comp_name, len(count_cols))
+
+    return deg_results
 
 
 # ---------------------------------------------------------------------------
