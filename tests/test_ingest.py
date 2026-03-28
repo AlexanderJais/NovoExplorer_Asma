@@ -433,3 +433,80 @@ class TestIngestAll:
         assert result["enrichment"] == {}
         assert result["sample_info"] is None
         assert result["groups"]["groups"] == []
+
+
+# -----------------------------------------------------------------------
+# 8. Raw Novogene delivery (numbered containers + database-first enrichment)
+# -----------------------------------------------------------------------
+
+
+class TestRawNovogeneDelivery:
+    """Tests for raw Novogene deliveries with numbered container folders
+    (``1.deglist/``, ``2.cluster/``) and database-first enrichment layout
+    (``Enrichment/KEGG/{comparison}/...``).
+    """
+
+    def test_discovery_finds_differential(self, tmp_novogene_raw_dir: Path) -> None:
+        structure = discover_novogene_structure(tmp_novogene_raw_dir)
+        assert structure["deg_dir"] is not None
+        assert structure["deg_dir"].name == "Differential"
+
+    def test_discovery_finds_enrichment(self, tmp_novogene_raw_dir: Path) -> None:
+        structure = discover_novogene_structure(tmp_novogene_raw_dir)
+        assert structure["enrichment_dir"] is not None
+        assert structure["enrichment_dir"].name == "Enrichment"
+
+    def test_deg_parses_through_numbered_container(self, tmp_novogene_raw_dir: Path) -> None:
+        structure = discover_novogene_structure(tmp_novogene_raw_dir)
+        deg = parse_deg_results(structure["deg_dir"])
+
+        assert "GroupA_vs_GroupB" in deg
+        assert "GroupA_vs_GroupC" in deg
+        # Should NOT have numbered container names as comparisons
+        assert "1.deglist" not in deg
+        assert "2.cluster" not in deg
+
+    def test_deg_dataframe_shape_from_raw(self, tmp_novogene_raw_dir: Path) -> None:
+        structure = discover_novogene_structure(tmp_novogene_raw_dir)
+        deg = parse_deg_results(structure["deg_dir"])
+        df = deg["GroupA_vs_GroupB"]
+
+        assert len(df) == 100
+        expected_cols = {"gene_id", "gene_name", "log2fc", "pvalue", "padj"}
+        assert expected_cols.issubset(set(df.columns))
+
+    def test_enrichment_database_first_layout(self, tmp_novogene_raw_dir: Path) -> None:
+        structure = discover_novogene_structure(tmp_novogene_raw_dir)
+        enrichment = parse_enrichment_results(structure["enrichment_dir"])
+
+        assert "GroupA_vs_GroupB" in enrichment
+        assert "GO" in enrichment["GroupA_vs_GroupB"]
+        assert "KEGG" in enrichment["GroupA_vs_GroupB"]
+
+    def test_enrichment_go_shape(self, tmp_novogene_raw_dir: Path) -> None:
+        structure = discover_novogene_structure(tmp_novogene_raw_dir)
+        enrichment = parse_enrichment_results(structure["enrichment_dir"])
+        go_df = enrichment["GroupA_vs_GroupB"]["GO"]
+
+        assert len(go_df) == 10
+
+    def test_enrichment_kegg_shape(self, tmp_novogene_raw_dir: Path) -> None:
+        structure = discover_novogene_structure(tmp_novogene_raw_dir)
+        enrichment = parse_enrichment_results(structure["enrichment_dir"])
+        kegg_df = enrichment["GroupA_vs_GroupB"]["KEGG"]
+
+        assert len(kegg_df) == 5
+
+    def test_ingest_all_raw_delivery(self, tmp_novogene_raw_dir: Path) -> None:
+        result = ingest_all(tmp_novogene_raw_dir)
+
+        assert len(result["deg"]) == 2
+        assert "GroupA_vs_GroupB" in result["deg"]
+        assert "GroupA_vs_GroupC" in result["deg"]
+        assert "GroupA_vs_GroupB" in result["enrichment"]
+        assert result["sample_info"] is not None
+
+    def test_infer_groups_from_raw_delivery(self, tmp_novogene_raw_dir: Path) -> None:
+        result = ingest_all(tmp_novogene_raw_dir)
+        groups = sorted(result["groups"]["groups"])
+        assert groups == ["GroupA", "GroupB", "GroupC"]

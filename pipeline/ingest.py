@@ -84,6 +84,19 @@ def _iglob_files(base: Path, patterns: tuple[str, ...]) -> List[Path]:
     return found
 
 
+# Regex for numbered container folders like "1.deglist", "2.cluster", "3.enrichment"
+_NUMBERED_DIR_RE = re.compile(r"^\d+\.")
+
+
+def _is_container_dir(subdir: Path) -> bool:
+    """Check if *subdir* is an intermediate container (not an actual comparison).
+
+    Container directories have a numbered prefix (e.g. ``1.deglist``,
+    ``2.cluster``) — a convention used in raw Novogene deliveries.
+    """
+    return bool(_NUMBERED_DIR_RE.match(subdir.name))
+
+
 def _find_sample_info_file(base: Path) -> Optional[Path]:
     """Walk *base* recursively looking for a sample/group info file."""
     for root, _dirs, files in sorted_walk(base):
@@ -241,9 +254,25 @@ def parse_expression_matrices(quant_dir: str | Path | None) -> Dict[str, Optiona
 def parse_deg_results(deg_dir: str | Path | None) -> Dict[str, pd.DataFrame]:
     """Parse DEG tables from each comparison subdirectory in *deg_dir*.
 
-    Each immediate subdirectory is assumed to be a comparison
-    (e.g. ``GroupA_vs_GroupB``).  Within it we look for a file matching
-    ``*.DEG.xls`` (or similar DEG table patterns).
+    Supports two layouts:
+
+    **Flat layout** (test fixtures / cleaned deliveries)::
+
+        deg_dir/
+          GroupA_vs_GroupB/
+            *.DEG.xls
+
+    **Numbered-container layout** (raw Novogene deliveries)::
+
+        deg_dir/
+          1.deglist/
+            GroupA_vs_GroupB/
+              *_deg.xls
+          2.cluster/
+            ...
+
+    Numbered containers (``1.xxx``, ``2.xxx``, …) are transparently
+    descended into so the comparison folders within them are found.
 
     Returns ``{comparison_name: DataFrame}`` with standardised column names.
     """
@@ -267,17 +296,29 @@ def parse_deg_results(deg_dir: str | Path | None) -> Dict[str, pd.DataFrame]:
         "*diff_exp*",
     )
 
+    # Collect comparison directories — unwrap numbered containers first.
+    comparison_dirs: list[Path] = []
     for subdir in sorted(deg_dir.iterdir()):
         if not subdir.is_dir():
             continue
-        comparison = subdir.name
+        if _is_container_dir(subdir):
+            # Descend into numbered containers like 1.deglist/
+            logger.info("  Entering container directory: %s", subdir.name)
+            for inner in sorted(subdir.iterdir()):
+                if inner.is_dir():
+                    comparison_dirs.append(inner)
+        else:
+            comparison_dirs.append(subdir)
+
+    for comp_dir in comparison_dirs:
+        comparison = comp_dir.name
         logger.info("  Processing DEG comparison: %s", comparison)
 
         # Find the DEG table in this comparison folder
-        deg_files = _iglob_files(subdir, _DEG_FILE_PATTERNS)
+        deg_files = _iglob_files(comp_dir, _DEG_FILE_PATTERNS)
         if not deg_files:
             # Also search one level deeper (some deliveries nest further)
-            for nested in sorted(subdir.iterdir()):
+            for nested in sorted(comp_dir.iterdir()):
                 if nested.is_dir():
                     deg_files = _iglob_files(nested, _DEG_FILE_PATTERNS)
                     if deg_files:
@@ -309,32 +350,29 @@ def parse_deg_results(deg_dir: str | Path | None) -> Dict[str, pd.DataFrame]:
 # ---------------------------------------------------------------------------
 
 
-def parse_enrichment_results(
-    enrichment_dir: str | Path | None,
-) -> Dict[str, Dict[str, pd.DataFrame]]:
-    """Parse enrichment results from comparison subdirectories.
+def _detect_enrichment_layout(enrichment_dir: Path) -> str:
+    """Determine which enrichment folder layout is used.
 
-    Expected layout::
+    Returns ``"comparison_first"`` for the flat/cleaned layout::
 
-        enrichment_dir/
-          CompA_vs_CompB/
-            GO/
-              *.xls  (enrichment table)
-            KEGG/
-              *.xls
+        enrichment_dir/{comparison}/GO/*.xls
 
-    Returns ``{comparison: {database: DataFrame}}``.
+    Returns ``"database_first"`` for the raw Novogene layout::
+
+        enrichment_dir/KEGG/{comparison}/{all|up|down}/*_KEGGenrich.xls
     """
+    _DB_NAMES = {"go", "kegg"}
+    for child in enrichment_dir.iterdir():
+        if child.is_dir() and child.name.lower() in _DB_NAMES:
+            return "database_first"
+    return "comparison_first"
+
+
+def _parse_enrichment_comparison_first(
+    enrichment_dir: Path,
+) -> Dict[str, Dict[str, pd.DataFrame]]:
+    """Parse enrichment in the ``{comparison}/{database}/`` layout."""
     results: Dict[str, Dict[str, pd.DataFrame]] = {}
-
-    if enrichment_dir is None:
-        logger.warning("No enrichment directory provided; skipping enrichment parsing.")
-        return results
-
-    enrichment_dir = Path(enrichment_dir).resolve()
-    if not enrichment_dir.is_dir():
-        logger.warning("Enrichment directory does not exist: %s", enrichment_dir)
-        return results
 
     _ENRICH_FILE_PATTERNS = (
         "*.xls",
@@ -368,14 +406,12 @@ def parse_enrichment_results(
                 logger.warning("    No enrichment files in %s", db_dir)
                 continue
 
-            # Pick the first (or largest) enrichment table
             fpath = enrich_files[0]
             logger.info("    Parsing %s enrichment: %s", db_name, fpath)
             try:
                 df = read_table_flexible(fpath)
                 if df is not None and not df.empty:
                     df = standardize_enrichment_columns(df)
-                    # Tag with database category if not already present
                     if "category" not in df.columns:
                         df["category"] = db_name
                     comp_results[db_name] = df
@@ -387,6 +423,143 @@ def parse_enrichment_results(
 
         if comp_results:
             results[comparison] = comp_results
+
+    return results
+
+
+def _parse_enrichment_database_first(
+    enrichment_dir: Path,
+) -> Dict[str, Dict[str, pd.DataFrame]]:
+    """Parse enrichment in the raw Novogene ``{database}/{comparison}/`` layout.
+
+    Handles the structure::
+
+        enrichment_dir/
+          KEGG/
+            GroupA_vs_GroupB/
+              all/  (or up/ or down/)
+                *_KEGGenrich.xls
+          GO/
+            GroupA_vs_GroupB/
+              all/
+                *_GOenrich.xls
+
+    We prefer the ``all`` (all DEGs) enrichment table for each comparison.
+    Falls back to the first available regulation-direction subfolder.
+    """
+    results: Dict[str, Dict[str, pd.DataFrame]] = {}
+
+    _ENRICH_FILE_PATTERNS = (
+        "*enrich*.xls",
+        "*enrich*.xlsx",
+        "*.xls",
+        "*.xlsx",
+        "*.tsv",
+        "*.csv",
+        "*.txt",
+    )
+
+    _DB_DIR_PATTERNS = {
+        "GO": ("go*", "GO*"),
+        "KEGG": ("kegg*", "KEGG*"),
+    }
+
+    for db_name, db_patterns in _DB_DIR_PATTERNS.items():
+        db_dirs = _iglob_dirs(enrichment_dir, db_patterns)
+        if not db_dirs:
+            logger.info("  No %s directory found in enrichment root.", db_name)
+            continue
+        db_dir = db_dirs[0]
+        logger.info("  Processing database-first enrichment: %s (%s)", db_name, db_dir.name)
+
+        for comp_dir in sorted(db_dir.iterdir()):
+            if not comp_dir.is_dir():
+                continue
+            comparison = comp_dir.name
+            logger.info("    Comparison: %s", comparison)
+
+            # Try to find enrichment files directly in the comparison dir
+            enrich_files = _iglob_files(comp_dir, _ENRICH_FILE_PATTERNS)
+
+            if not enrich_files:
+                # Look inside regulation sub-dirs (all/, up/, down/) — prefer "all"
+                reg_dirs = sorted(comp_dir.iterdir())
+                # Sort so "all" comes first if it exists
+                reg_dirs_sorted = sorted(
+                    [d for d in reg_dirs if d.is_dir()],
+                    key=lambda d: (0 if d.name.lower() == "all" else 1, d.name.lower()),
+                )
+                for reg_dir in reg_dirs_sorted:
+                    enrich_files = _iglob_files(reg_dir, _ENRICH_FILE_PATTERNS)
+                    if enrich_files:
+                        break
+
+            if not enrich_files:
+                logger.warning("      No enrichment files found for %s/%s", db_name, comparison)
+                continue
+
+            fpath = enrich_files[0]
+            logger.info("      Parsing: %s", fpath)
+            try:
+                df = read_table_flexible(fpath)
+                if df is not None and not df.empty:
+                    df = standardize_enrichment_columns(df)
+                    if "category" not in df.columns:
+                        df["category"] = db_name
+                    results.setdefault(comparison, {})[db_name] = df
+                    logger.info("        -> %d terms", len(df))
+                else:
+                    logger.warning("        -> empty or None result for %s", fpath)
+            except Exception:
+                logger.warning("        -> failed to parse %s", fpath, exc_info=True)
+
+    return results
+
+
+def parse_enrichment_results(
+    enrichment_dir: str | Path | None,
+) -> Dict[str, Dict[str, pd.DataFrame]]:
+    """Parse enrichment results from an enrichment directory.
+
+    Supports two layouts:
+
+    **Comparison-first** (test fixtures / cleaned deliveries)::
+
+        enrichment_dir/
+          CompA_vs_CompB/
+            GO/  *.xls
+            KEGG/  *.xls
+
+    **Database-first** (raw Novogene deliveries)::
+
+        enrichment_dir/
+          KEGG/
+            CompA_vs_CompB/
+              all/  *_KEGGenrich.xls
+          GO/
+            CompA_vs_CompB/
+              all/  *_GOenrich.xls
+
+    Returns ``{comparison: {database: DataFrame}}``.
+    """
+    results: Dict[str, Dict[str, pd.DataFrame]] = {}
+
+    if enrichment_dir is None:
+        logger.warning("No enrichment directory provided; skipping enrichment parsing.")
+        return results
+
+    enrichment_dir = Path(enrichment_dir).resolve()
+    if not enrichment_dir.is_dir():
+        logger.warning("Enrichment directory does not exist: %s", enrichment_dir)
+        return results
+
+    layout = _detect_enrichment_layout(enrichment_dir)
+    logger.info("  Detected enrichment layout: %s", layout)
+
+    if layout == "database_first":
+        results = _parse_enrichment_database_first(enrichment_dir)
+    else:
+        results = _parse_enrichment_comparison_first(enrichment_dir)
 
     logger.info("  Parsed enrichment for %d comparisons", len(results))
     return results
