@@ -154,6 +154,8 @@ def _get_gene_info(
     # Expression statistics
     if expression_df is not None and gene_name in expression_df.index:
         expr_row = expression_df.loc[gene_name]
+        if isinstance(expr_row, pd.DataFrame):
+            expr_row = expr_row.iloc[0]
         info["mean_expression"] = float(expr_row.mean())
         info["max_expression"] = float(expr_row.max())
         info["n_samples_detected"] = int((expr_row > 0).sum())

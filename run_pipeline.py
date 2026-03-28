@@ -216,8 +216,8 @@ def run_pipeline(config: Dict[str, Any]) -> None:
         },
         # Embeddings (extracted from QC PCA/UMAP results)
         "embeddings": {
-            "pca_coordinates": qc_result.get("pca", {}).get("coordinates") if qc_result else None,
-            "pca_variance": qc_result.get("pca", {}).get("variance_explained") if qc_result else None,
+            "pca_coordinates": (qc_result.get("pca") or {}).get("coordinates") if qc_result else None,
+            "pca_variance": (qc_result.get("pca") or {}).get("variance_explained") if qc_result else None,
             "umap": qc_result.get("umap") if qc_result else None,
         },
         # Signature analysis - map run_signatures() keys to persistence keys

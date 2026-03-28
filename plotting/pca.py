@@ -13,7 +13,7 @@ import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 
-from novoview.plotting.theme import (
+from plotting.theme import (
     WONG_PALETTE,
     apply_plotly_theme,
     format_axis_label,

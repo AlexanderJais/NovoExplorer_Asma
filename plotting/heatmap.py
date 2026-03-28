@@ -17,7 +17,7 @@ import plotly.graph_objects as go
 from scipy.cluster.hierarchy import linkage, leaves_list
 from scipy.spatial.distance import pdist
 
-from novoview.plotting.theme import (
+from plotting.theme import (
     WONG_PALETTE,
     DIVERGING_CMAP,
     PLOTLY_DIVERGING_CMAP,

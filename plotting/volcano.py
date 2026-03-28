@@ -13,7 +13,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 
-from novoview.plotting.theme import (
+from plotting.theme import (
     WONG_PALETTE,
     VOLCANO_COLORS,
     apply_plotly_theme,

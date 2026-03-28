@@ -262,13 +262,15 @@ def standardize_enrichment_columns(df: pd.DataFrame) -> pd.DataFrame:
 
     column_candidates = {
         "term_id": [
-            "Term", "GO_term", "ID", "term_id", "GO_ID", "GOID",
+            "ID", "term_id", "GO_ID", "GOID",
             "KEGG_ID", "KEGGID", "PathwayID",
             "DisGeNETID", "DOID", "ReactomeID",
+            "Term", "GO_term",
         ],
         "term_name": [
-            "Description", "Term", "GO_term", "Pathway",
+            "Description", "Pathway",
             "pathway_name", "KEGG_pathway", "term_name",
+            "Term", "GO_term",
         ],
         "pvalue": ["pvalue", "PValue", "P-value", "Pvalue"],
         "padj": [
@@ -328,7 +330,7 @@ def read_table_flexible(path) -> pd.DataFrame:
     # Strategy 1: TSV, UTF-8
     try:
         df = pd.read_csv(path, sep="\t", encoding="utf-8", comment="#")
-        if len(df.columns) > 1:
+        if len(df.columns) >= 1 and not df.empty:
             return df
     except Exception:
         pass
@@ -336,7 +338,7 @@ def read_table_flexible(path) -> pd.DataFrame:
     # Strategy 2: TSV, Latin-1
     try:
         df = pd.read_csv(path, sep="\t", encoding="latin-1", comment="#")
-        if len(df.columns) > 1:
+        if len(df.columns) >= 1 and not df.empty:
             return df
     except Exception:
         pass

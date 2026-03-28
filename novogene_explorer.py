@@ -717,8 +717,17 @@ with tab_enrichment:
                 st.info("No significant enrichment terms at this threshold.")
             else:
                 # Dot plot
-                plot_df = sig_df.nsmallest(max_terms, "padj" if "padj" in sig_df.columns else sig_df.columns[0]).copy()
-                plot_df["neg_log10_padj"] = -np.log10(plot_df["padj"].clip(lower=1e-300))
+                sort_col = "padj" if "padj" in sig_df.columns else "pvalue" if "pvalue" in sig_df.columns else None
+                if sort_col is not None:
+                    plot_df = sig_df.nsmallest(max_terms, sort_col).copy()
+                else:
+                    plot_df = sig_df.head(max_terms).copy()
+                if "padj" in plot_df.columns:
+                    plot_df["neg_log10_padj"] = -np.log10(plot_df["padj"].clip(lower=1e-300))
+                elif "pvalue" in plot_df.columns:
+                    plot_df["neg_log10_padj"] = -np.log10(plot_df["pvalue"].clip(lower=1e-300))
+                else:
+                    plot_df["neg_log10_padj"] = 1.0
 
                 # Determine term label column
                 term_col = "term_name" if "term_name" in plot_df.columns else (
@@ -1104,7 +1113,7 @@ with tab_ranked:
             col_r1, col_r2, col_r3 = st.columns(3)
             col_r1.metric("Total genes", f"{len(ranked):,}")
             col_r2.metric("Significant", f"{n_sig:,}")
-            col_r3.metric("% Significant", f"{100 * n_sig / len(ranked):.1f}%")
+            col_r3.metric("% Significant", f"{100 * n_sig / len(ranked):.1f}%" if len(ranked) > 0 else "0.0%")
 
             # Top / bottom genes tables
             col_top, col_bot = st.columns(2)
@@ -1165,10 +1174,11 @@ with tab_degsummary:
 
             # Filtering
             if show_mode != "All genes":
-                padj_cols = [c for c in wide.columns if c.endswith("|padj")]
-                fc_cols = [c for c in wide.columns if c.endswith("|log2FC")]
+                padj_cols = {c.rsplit("|", 1)[0]: c for c in wide.columns if c.endswith("|padj")}
+                fc_cols = {c.rsplit("|", 1)[0]: c for c in wide.columns if c.endswith("|log2FC")}
                 sig_per_comp = pd.DataFrame(index=wide.index)
-                for pc, fc in zip(padj_cols, fc_cols):
+                for comp_key in padj_cols.keys() & fc_cols.keys():
+                    pc, fc = padj_cols[comp_key], fc_cols[comp_key]
                     sig_per_comp[pc] = (wide[pc] < summary_padj) & (wide[fc].abs() >= summary_fc)
                 if show_mode == "Significant in at least 1 comparison":
                     mask = sig_per_comp.any(axis=1)
@@ -1366,12 +1376,27 @@ with tab_export:
 
         if st.button("Generate Excel workbook", key="export_excel_btn"):
             buffer = io.BytesIO()
+            used_sheet_names: set[str] = set()
+
+            def _unique_sheet_name(base: str) -> str:
+                name = base[:31]
+                if name not in used_sheet_names:
+                    used_sheet_names.add(name)
+                    return name
+                for i in range(2, 100):
+                    suffix = f"_{i}"
+                    candidate = f"{base[:31 - len(suffix)]}{suffix}"
+                    if candidate not in used_sheet_names:
+                        used_sheet_names.add(candidate)
+                        return candidate
+                return name  # fallback
+
             with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
                 for comp_name in sorted(deg.keys()):
                     df = deg[comp_name].copy()
                     if sig_only and {"log2fc", "padj"}.issubset(set(df.columns)):
                         df = df[(df["padj"] < export_padj) & (df["log2fc"].abs() >= export_fc)]
-                    sheet_name = comp_name[:31]  # Excel sheet name limit
+                    sheet_name = _unique_sheet_name(comp_name)
                     df.to_excel(writer, sheet_name=sheet_name, index=False)
 
                 # Add enrichment sheets
@@ -1380,7 +1405,7 @@ with tab_export:
                         edf = standardize_enrichment_columns(db_df.copy())
                         if sig_only and "padj" in edf.columns:
                             edf = edf[edf["padj"] < export_padj]
-                        sheet_name = f"{comp_name[:20]}_{db_name}"[:31]
+                        sheet_name = _unique_sheet_name(f"{comp_name[:20]}_{db_name}")
                         edf.to_excel(writer, sheet_name=sheet_name, index=False)
 
             st.download_button(

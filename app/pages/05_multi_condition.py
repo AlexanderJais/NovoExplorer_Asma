@@ -464,7 +464,8 @@ def main() -> None:
 
         if sig_genes:
             total_sig = sum(len(genes) for genes in sig_genes.values())
-            shared = len(set.intersection(*[s for s in sig_genes.values() if s]) if len(sig_genes) > 1 else set())
+            non_empty = [s for s in sig_genes.values() if s]
+            shared = len(set.intersection(*non_empty)) if len(non_empty) > 1 else 0
             badge_cols = st.columns(3)
             badge_cols[0].metric("Total Unique DEGs", fmt_count(len(set.union(*sig_genes.values()))))
             badge_cols[1].metric("Comparisons", len(sig_genes))

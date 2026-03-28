@@ -7,7 +7,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 
-from novoview.plotting.theme import (
+from plotting.theme import (
     WONG_PALETTE,
     VOLCANO_COLORS,
     DIVERGING_CMAP,
@@ -90,7 +90,7 @@ def create_ma_plot_plotly(
                     opacity=0.7,
                 ),
                 name=label,
-                text=sub["gene_name"],
+                text=sub["gene_name"] if "gene_name" in sub.columns else sub.index.astype(str),
                 hovertemplate=(
                     "<b>%{text}</b><br>"
                     "log2(baseMean): %{x:.2f}<br>"

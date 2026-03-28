@@ -146,6 +146,8 @@ def create_expression_bar(
         return None
 
     expr_values = expression_df.loc[gene_name]
+    if isinstance(expr_values, pd.DataFrame):
+        expr_values = expr_values.iloc[0]
     df = pd.DataFrame({
         "sample": expr_values.index,
         "expression": expr_values.values,

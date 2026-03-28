@@ -7,7 +7,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from itertools import combinations
 
-from novoview.plotting.theme import (
+from plotting.theme import (
     WONG_PALETTE,
     VOLCANO_COLORS,
     DIVERGING_CMAP,
@@ -47,6 +47,9 @@ def create_upset_data(
         if "gene_name" not in df.columns:
             df = df.copy()
             df["gene_name"] = df.index.astype(str)
+        if "padj" not in df.columns or "log2fc" not in df.columns:
+            sig_sets[name] = set(df["gene_name"]) if "gene_name" in df.columns else set(df.index.astype(str))
+            continue
         mask = (df["padj"] < padj_threshold) & (df["log2fc"].abs() >= log2fc_threshold)
         sig_sets[name] = set(df.loc[mask, "gene_name"])
 

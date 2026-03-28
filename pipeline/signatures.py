@@ -121,13 +121,27 @@ def run_preranked_gsea(
         # Clean results into a tidy DataFrame
         res_df = res.res2d.copy()
 
+        # gseapy column names vary between versions; find the right ones
+        def _get_col(candidates, fallback=None):
+            for c in candidates:
+                if c in res_df.columns:
+                    return c
+            return fallback
+
+        term_col = _get_col(["Term", "Name", "term"])
+        es_col = _get_col(["ES", "es"])
+        nes_col = _get_col(["NES", "nes"])
+        pval_col = _get_col(["NOM p-val", "P-value", "pvalue", "NOM p-value"])
+        fdr_col = _get_col(["FDR q-val", "FDR", "fdr"])
+        lead_col = _get_col(["Lead_genes", "lead_genes", "Lead genes"])
+
         summary = pd.DataFrame({
-            "term": res_df["Term"],
-            "es": pd.to_numeric(res_df["ES"], errors="coerce"),
-            "nes": pd.to_numeric(res_df["NES"], errors="coerce"),
-            "pvalue": pd.to_numeric(res_df["NOM p-val"], errors="coerce"),
-            "fdr": pd.to_numeric(res_df["FDR q-val"], errors="coerce"),
-            "lead_genes": res_df["Lead_genes"].astype(str),
+            "term": res_df[term_col] if term_col else res_df.index,
+            "es": pd.to_numeric(res_df[es_col], errors="coerce") if es_col else float("nan"),
+            "nes": pd.to_numeric(res_df[nes_col], errors="coerce") if nes_col else float("nan"),
+            "pvalue": pd.to_numeric(res_df[pval_col], errors="coerce") if pval_col else float("nan"),
+            "fdr": pd.to_numeric(res_df[fdr_col], errors="coerce") if fdr_col else float("nan"),
+            "lead_genes": res_df[lead_col].astype(str) if lead_col else "",
         }).reset_index(drop=True)
 
         logger.info(

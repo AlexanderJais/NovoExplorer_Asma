@@ -548,7 +548,10 @@ def run_diffexp(
     comparisons = config.get("comparisons", None)
 
     # Convert comparisons list-of-lists to list-of-tuples if needed
-    if comparisons is not None:
+    # Handle the "auto" sentinel string from config
+    if comparisons == "auto":
+        comparisons = None
+    elif comparisons is not None:
         comparisons = [tuple(c) for c in comparisons]
 
     novogene_cleaned: Optional[Dict[str, pd.DataFrame]] = None

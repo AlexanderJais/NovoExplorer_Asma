@@ -26,11 +26,9 @@ import streamlit as st
 # Ensure the project root is on sys.path so pipeline imports resolve.
 # ---------------------------------------------------------------------------
 _APP_DIR = Path(__file__).resolve().parent
-_PROJECT_ROOT = _APP_DIR.parent.parent  # Xenium-Analysis/
+_PROJECT_ROOT = _APP_DIR.parent  # NovoExplorer/
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
-if str(_PROJECT_ROOT / "novoview") not in sys.path:
-    sys.path.insert(0, str(_PROJECT_ROOT / "novoview"))
 
 from pipeline.utils import load_config  # noqa: E402
 
