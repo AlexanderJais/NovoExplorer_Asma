@@ -1299,10 +1299,17 @@ with tab_pathway:
                                 if "gene_name" not in comp_deg.columns:
                                     break
                                 hit = comp_deg[comp_deg["gene_name"].str.upper() == g.upper()]
+                                # Fall back to matching by gene_id (handles ENSG identifiers)
+                                if hit.empty and "gene_id" in comp_deg.columns:
+                                    hit = comp_deg[comp_deg["gene_id"].str.upper() == g.upper()]
                                 if not hit.empty:
                                     r = hit.iloc[0]
+                                    display_name = r.get("gene_name", g)
+                                    # Prefer human-readable gene_name over ENSG id
+                                    if pd.isna(display_name) or str(display_name).startswith("ENSG"):
+                                        display_name = g
                                     gene_rows.append({
-                                        "Gene": g,
+                                        "Gene": display_name,
                                         "log2FC": r.get("log2fc", np.nan),
                                         "padj": r.get("padj", np.nan),
                                         "basemean": r.get("basemean", np.nan),
@@ -1343,6 +1350,8 @@ with tab_pathway:
                                             if "gene_name" not in cdf.columns:
                                                 continue
                                             hit = cdf[cdf["gene_name"].str.upper() == g.upper()]
+                                            if hit.empty and "gene_id" in cdf.columns:
+                                                hit = cdf[cdf["gene_id"].str.upper() == g.upper()]
                                             if not hit.empty:
                                                 row_data[cname] = hit.iloc[0].get("log2fc", np.nan)
                                         if row_data:

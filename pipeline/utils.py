@@ -285,8 +285,8 @@ def standardize_enrichment_columns(df: pd.DataFrame) -> pd.DataFrame:
             "Rich Factor", "richFactor",
         ],
         "genes": [
-            "geneID", "Genes", "gene_list", "Core_enrichment",
-            "geneName",
+            "geneName", "Genes", "gene_list", "Core_enrichment",
+            "geneID",
         ],
     }
 
