@@ -273,6 +273,16 @@ def main() -> None:
         ma_df = deg_df.copy()
         if "baseMean" in ma_df.columns and "basemean" not in ma_df.columns:
             ma_df = ma_df.rename(columns={"baseMean": "basemean"})
+        # Compute basemean from sample count columns when absent
+        if "basemean" not in ma_df.columns and {"log2fc", "padj"}.issubset(set(ma_df.columns)):
+            _meta_cols = {
+                "gene_id", "gene_name", "log2fc", "pvalue", "padj", "basemean",
+                "regulation", "gene_chr", "gene_start", "gene_end", "gene_strand",
+                "gene_length", "gene_biotype", "gene_description", "tf_family",
+            }
+            count_cols = [c for c in ma_df.columns if c not in _meta_cols and pd.api.types.is_numeric_dtype(ma_df[c])]
+            if count_cols:
+                ma_df["basemean"] = ma_df[count_cols].mean(axis=1)
         if "basemean" in ma_df.columns:
             fig_ma = create_ma_plot_plotly(
                 ma_df,

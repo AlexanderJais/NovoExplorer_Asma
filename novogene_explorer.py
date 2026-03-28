@@ -887,7 +887,18 @@ with tab_ma:
         st.warning("No DEG data loaded.")
     else:
         ma_comp = st.selectbox("Select comparison", sorted(deg.keys()), key="ma_comp_select")
-        ma_df = deg[ma_comp]
+        ma_df = deg[ma_comp].copy()
+
+        # Compute basemean from sample count columns when absent
+        if "basemean" not in ma_df.columns and {"log2fc", "padj"}.issubset(set(ma_df.columns)):
+            _meta_cols = {
+                "gene_id", "gene_name", "log2fc", "pvalue", "padj", "basemean",
+                "regulation", "gene_chr", "gene_start", "gene_end", "gene_strand",
+                "gene_length", "gene_biotype", "gene_description", "tf_family",
+            }
+            count_cols = [c for c in ma_df.columns if c not in _meta_cols and pd.api.types.is_numeric_dtype(ma_df[c])]
+            if count_cols:
+                ma_df["basemean"] = ma_df[count_cols].mean(axis=1)
 
         has_ma_cols = {"log2fc", "padj"}.issubset(set(ma_df.columns)) and "basemean" in ma_df.columns
         if not has_ma_cols:
