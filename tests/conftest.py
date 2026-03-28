@@ -1,5 +1,5 @@
 """
-Pytest fixtures for NovoView pipeline tests.
+Pytest fixtures for NovoExplorer pipeline tests.
 
 Creates synthetic Novogene-like data structures and DataFrames that
 mirror the folder layout and file formats delivered by Novogene.

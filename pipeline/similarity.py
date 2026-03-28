@@ -1,5 +1,5 @@
 """
-Gene similarity and clustering module for the NovoView RNA-Seq platform.
+Gene similarity and clustering module for the NovoExplorer RNA-Seq platform.
 
 Computes pairwise gene similarity from expression profiles and differential
 expression signatures, performs hierarchical clustering, and provides

@@ -1,4 +1,4 @@
-"""Download buttons for CSV and figure exports in NovoView.
+"""Download buttons for CSV and figure exports in NovoExplorer.
 
 Provides ``download_csv_button`` for DataFrame exports and
 ``download_figure_buttons`` for PNG/SVG figure exports (supports

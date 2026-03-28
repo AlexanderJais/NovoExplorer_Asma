@@ -1,4 +1,4 @@
-"""Gene basket -- collect genes of interest across NovoView pages.
+"""Gene basket -- collect genes of interest across NovoExplorer pages.
 
 Stores a list of gene names in ``st.session_state`` under the key
 ``"gene_basket"``.  The basket persists across page navigations within

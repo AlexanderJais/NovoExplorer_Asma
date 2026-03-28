@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""NovoView analysis pipeline -- CLI entry point.
+"""NovoExplorer analysis pipeline -- CLI entry point.
 
 Orchestrates the full RNA-Seq analysis workflow: ingestion of Novogene
 delivery data, normalisation, quality control, differential expression,
@@ -72,7 +72,7 @@ def run_pipeline(config: Dict[str, Any]) -> None:
     data_dir = config.get("data_dir", ".")
     output_dir = config.get("output_dir", "results")
     organism = config.get("organism", "human")
-    output_file = str(Path(output_dir) / "novoview_results.h5")
+    output_file = str(Path(output_dir) / "novoexplorer_results.h5")
 
     # Ensure the output directory exists
     os.makedirs(output_dir, exist_ok=True)
@@ -294,7 +294,7 @@ def _normalize_step(counts_df, organism, normalize_mod) -> Dict[str, Any]:
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="NovoView RNA-Seq analysis pipeline",
+        description="NovoExplorer RNA-Seq analysis pipeline",
     )
     parser.add_argument(
         "--config",
@@ -315,7 +315,7 @@ def main() -> None:
         datefmt="%Y-%m-%d %H:%M:%S",
     )
 
-    logger.info("NovoView pipeline starting with config: %s", args.config)
+    logger.info("NovoExplorer pipeline starting with config: %s", args.config)
     run_pipeline(config)
 
 

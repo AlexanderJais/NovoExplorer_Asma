@@ -1,4 +1,4 @@
-"""Shared helper functions for NovoView Streamlit pages.
+"""Shared helper functions for NovoExplorer Streamlit pages.
 
 Centralises repeated patterns: data path resolution, sample group
 extraction, expression bar charts, and numeric formatting.
@@ -21,11 +21,11 @@ import plotly.graph_objects as go
 import streamlit as st
 
 # ---------------------------------------------------------------------------
-# Ensure the novoview package root is importable
+# Ensure the NovoExplorer package root is importable
 # ---------------------------------------------------------------------------
-_NOVOVIEW_ROOT = Path(__file__).resolve().parents[2]
-if str(_NOVOVIEW_ROOT) not in sys.path:
-    sys.path.insert(0, str(_NOVOVIEW_ROOT))
+_PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(_PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(_PROJECT_ROOT))
 
 from plotting.theme import WONG_PALETTE, apply_plotly_theme  # noqa: E402
 
@@ -33,7 +33,7 @@ from plotting.theme import WONG_PALETTE, apply_plotly_theme  # noqa: E402
 # Data path
 # ---------------------------------------------------------------------------
 
-_DEFAULT_DATA_PATH = str(_NOVOVIEW_ROOT / "results" / "novoview_results.h5")
+_DEFAULT_DATA_PATH = str(_PROJECT_ROOT / "results" / "novoexplorer_results.h5")
 
 
 def get_data_path() -> str:
@@ -42,8 +42,8 @@ def get_data_path() -> str:
     Returns
     -------
     str
-        Absolute path to the ``novoview_results.h5`` file.  Falls back to
-        a default under ``novoview/results/`` if session state is empty.
+        Absolute path to the ``novoexplorer_results.h5`` file.  Falls back to
+        a default under ``results/`` if session state is empty.
     """
     return st.session_state.get("results_path", _DEFAULT_DATA_PATH)
 

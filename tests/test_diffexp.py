@@ -1,4 +1,4 @@
-"""Tests for the NovoView diffexp module."""
+"""Tests for the NovoExplorer diffexp module."""
 
 from __future__ import annotations
 

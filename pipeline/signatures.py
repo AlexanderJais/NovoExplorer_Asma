@@ -1,5 +1,5 @@
 """
-GSEA, ORA, and signature overlap analysis for the NovoView RNA-Seq platform.
+GSEA, ORA, and signature overlap analysis for the NovoExplorer RNA-Seq platform.
 
 Provides gene-set enrichment analysis (pre-ranked GSEA), over-representation
 analysis (ORA), cross-comparison signature overlap (Jaccard), and utilities

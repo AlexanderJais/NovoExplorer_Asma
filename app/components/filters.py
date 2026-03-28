@@ -1,4 +1,4 @@
-"""Reusable Streamlit filter widgets for NovoView pages.
+"""Reusable Streamlit filter widgets for NovoExplorer pages.
 
 Provides ``comparison_selector``, ``threshold_sliders``,
 ``database_selector``, and ``gene_search_box``.

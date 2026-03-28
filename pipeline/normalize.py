@@ -1,5 +1,5 @@
 """
-Normalization module for NovoView RNA-Seq platform.
+Normalization module for NovoExplorer RNA-Seq platform.
 
 Provides utilities for identifying expression matrix columns, standardizing
 expression data, computing TPM and log2 transforms, filtering low-expression

@@ -1,13 +1,13 @@
 #!/usr/bin/env python
-"""NovoView -- Main Streamlit application entry point.
+"""NovoExplorer -- Main Streamlit application entry point.
 
 Launch with::
 
     # Interactive mode (pick data in the browser):
-    streamlit run novoview/app/app.py
+    streamlit run app/app.py
 
     # Config mode (pre-configured project):
-    streamlit run novoview/app/app.py -- --config config.yaml
+    streamlit run app/app.py -- --config config.yaml
 
 When launched without ``--config``, the app shows a welcome screen where
 the user can browse to a results folder or HDF5 file.  Once a valid path
@@ -36,7 +36,7 @@ from pipeline.utils import load_config  # noqa: E402
 # Constants
 # ---------------------------------------------------------------------------
 _VERSION = "0.1.0"
-_DEFAULT_RESULTS_FILENAME = "novoview_results.h5"
+_DEFAULT_RESULTS_FILENAME = "novoexplorer_results.h5"
 
 _PAGE_DIR = _APP_DIR / "pages"
 
@@ -52,7 +52,7 @@ _PAGES = [
 # Page config (must be the first Streamlit call)
 # ---------------------------------------------------------------------------
 st.set_page_config(
-    page_title="NovoView",
+    page_title="NovoExplorer",
     page_icon="\U0001F52C",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -161,13 +161,13 @@ def _init_session_state() -> None:
 
 def _show_data_picker() -> None:
     """Render the welcome screen with a folder/file browser."""
-    st.markdown("# NovoView")
+    st.markdown("# NovoExplorer")
     st.caption("RNA-Seq Analysis Platform")
 
     st.markdown("---")
 
     st.markdown(
-        "### Welcome! Point NovoView to your analysis results to get started."
+        "### Welcome! Point NovoExplorer to your analysis results to get started."
     )
     st.markdown(
         "Enter the path to either:\n"
@@ -181,7 +181,7 @@ def _show_data_picker() -> None:
         user_path = st.text_input(
             "Results path",
             value=st.session_state.get("_picker_path", ""),
-            placeholder="/path/to/results or /path/to/novoview_results.h5",
+            placeholder="/path/to/results or /path/to/novoexplorer_results.h5",
             key="_picker_input",
         )
     with col2:
@@ -233,15 +233,15 @@ def _show_picker_help() -> None:
     st.markdown("---")
     with st.expander("How do I get results to load?", expanded=False):
         st.markdown(
-            "1. Run the NovoView pipeline on your RNA-Seq data:\n"
+            "1. Run the NovoExplorer pipeline on your RNA-Seq data:\n"
             "   ```bash\n"
-            "   python -m novoview.pipeline.run --config config.yaml\n"
+            "   python run_pipeline.py --config config.yaml\n"
             "   ```\n"
             f"2. This produces `{_DEFAULT_RESULTS_FILENAME}` in your output directory.\n"
             "3. Enter that directory path above and click **Load**.\n\n"
             "Alternatively, launch with a config file:\n"
             "   ```bash\n"
-            "   streamlit run novoview/app/app.py -- --config config.yaml\n"
+            "   streamlit run app/app.py -- --config config.yaml\n"
             "   ```"
         )
 
@@ -253,7 +253,7 @@ _init_session_state()
 # ---------------------------------------------------------------------------
 
 with st.sidebar:
-    st.markdown("# NovoView")
+    st.markdown("# NovoExplorer")
     st.caption("RNA-Seq Analysis Platform")
 
     # Project info card
@@ -301,7 +301,7 @@ with st.sidebar:
     st.markdown(
         f"""
         <div style="font-size:0.72rem; color:#ACACAC; text-align:center; padding:0.25rem 0;">
-            NovoView v{_VERSION}
+            NovoExplorer v{_VERSION}
         </div>
         """,
         unsafe_allow_html=True,

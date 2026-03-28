@@ -1,5 +1,5 @@
 """
-Differential expression analysis module for the NovoView RNA-Seq platform.
+Differential expression analysis module for the NovoExplorer RNA-Seq platform.
 
 Provides utilities for cleaning pre-computed Novogene DEG results, running
 de novo differential expression with pyDESeq2, classifying gene regulation,

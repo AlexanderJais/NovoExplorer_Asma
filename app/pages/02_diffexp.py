@@ -1,4 +1,4 @@
-"""Differential Expression Explorer -- NovoView Streamlit page.
+"""Differential Expression Explorer -- NovoExplorer Streamlit page.
 
 Interactive volcano plot, MA plot, sortable DEG table, gene search
 highlighting, basket integration, and per-gene expression bar charts.
@@ -15,11 +15,11 @@ import plotly.graph_objects as go
 import streamlit as st
 
 # ---------------------------------------------------------------------------
-# Ensure the novoview package root is importable
+# Ensure the NovoExplorer package root is importable
 # ---------------------------------------------------------------------------
-_NOVOVIEW_ROOT = Path(__file__).resolve().parents[2]
-if str(_NOVOVIEW_ROOT) not in sys.path:
-    sys.path.insert(0, str(_NOVOVIEW_ROOT))
+_PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(_PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(_PROJECT_ROOT))
 
 from pipeline.persistence import (  # noqa: E402
     load_results,

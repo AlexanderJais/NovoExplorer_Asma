@@ -1,1 +1,1 @@
-"""NovoView analysis pipeline for Novogene bulk RNA-Seq data."""
+"""NovoExplorer analysis pipeline for Novogene bulk RNA-Seq data."""

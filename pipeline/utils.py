@@ -1,5 +1,5 @@
 """
-Utility module for the NovoView RNA-Seq analysis platform.
+Utility module for the NovoExplorer RNA-Seq analysis platform.
 
 Provides logging setup, gene ID mapping, column standardization helpers,
 flexible file reading, and configuration loading.
@@ -69,7 +69,7 @@ def load_gene_id_mapping(organism: str) -> dict:
     """Load an Ensembl-to-symbol mapping from a compressed TSV.
 
     The file is expected at
-    ``<novoview_package>/resources/gene_id_mapping_{organism}.tsv.gz``
+    ``<novoexplorer>/resources/gene_id_mapping_{organism}.tsv.gz``
     with two tab-separated columns: ``ensembl_id`` and ``gene_symbol``.
 
     Parameters

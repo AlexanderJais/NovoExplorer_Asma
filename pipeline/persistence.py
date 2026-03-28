@@ -1,5 +1,5 @@
 """
-HDF5 persistence module for NovoView pipeline results.
+HDF5 persistence module for NovoExplorer pipeline results.
 
 Provides save/load functions for all pipeline outputs using pandas HDFStore
 (for DataFrames) and h5py (for metadata attributes). The HDF5 layout is:

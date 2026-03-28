@@ -1,4 +1,4 @@
-"""Tests for the NovoView persistence module.
+"""Tests for the NovoExplorer persistence module.
 
 Requires the ``tables`` (PyTables) package for HDF5 read/write via
 pandas HDFStore.  Tests are skipped automatically when the package is

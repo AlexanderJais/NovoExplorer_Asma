@@ -715,7 +715,7 @@ def ingest_all(data_dir: str | Path, config: Optional[Dict[str, Any]] = None) ->
     config = config or {}
     data_dir = Path(data_dir).resolve()
     logger.info("=" * 60)
-    logger.info("Starting NovoView ingestion: %s", data_dir)
+    logger.info("Starting NovoExplorer ingestion: %s", data_dir)
     logger.info("=" * 60)
 
     # Step 1 – discover directory structure

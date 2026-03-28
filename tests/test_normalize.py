@@ -1,4 +1,4 @@
-"""Tests for the NovoView normalize module.
+"""Tests for the NovoExplorer normalize module.
 
 Validates expression column detection, matrix standardization, TPM
 computation, log2 transformation, low-expression filtering, and
@@ -14,7 +14,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-# Ensure the novoview package root is importable
+# Ensure the NovoExplorer package root is importable
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from pipeline.normalize import (

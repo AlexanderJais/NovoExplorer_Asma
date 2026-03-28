@@ -1,1 +1,1 @@
-"""NovoView plotting modules with Nature journal styling."""
+"""NovoExplorer plotting modules with Nature journal styling."""

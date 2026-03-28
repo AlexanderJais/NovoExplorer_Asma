@@ -1,5 +1,5 @@
 """
-Quality control module for NovoView RNA-Seq platform.
+Quality control module for NovoExplorer RNA-Seq platform.
 
 Provides per-sample QC metrics (library size, gene detection rate,
 mitochondrial fraction), sample correlation, dimensionality reduction

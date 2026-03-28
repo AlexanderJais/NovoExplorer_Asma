@@ -1,4 +1,4 @@
-"""Gene Search and Similarity Finder -- NovoView Streamlit page.
+"""Gene Search and Similarity Finder -- NovoExplorer Streamlit page.
 
 Provides gene name search with autocomplete, expression bar charts,
 similar-gene discovery via cosine similarity, and basket integration.
@@ -14,11 +14,11 @@ import pandas as pd
 import streamlit as st
 
 # ---------------------------------------------------------------------------
-# Ensure the novoview package root is importable
+# Ensure the NovoExplorer package root is importable
 # ---------------------------------------------------------------------------
-_NOVOVIEW_ROOT = Path(__file__).resolve().parents[2]
-if str(_NOVOVIEW_ROOT) not in sys.path:
-    sys.path.insert(0, str(_NOVOVIEW_ROOT))
+_PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(_PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(_PROJECT_ROOT))
 
 from pipeline.persistence import (  # noqa: E402
     load_expression,

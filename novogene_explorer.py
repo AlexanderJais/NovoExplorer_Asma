@@ -24,11 +24,11 @@ import plotly.graph_objects as go
 import streamlit as st
 
 # ---------------------------------------------------------------------------
-# Ensure imports from the novoview package work
+# Ensure imports from the NovoExplorer package work
 # ---------------------------------------------------------------------------
-_NOVOVIEW_ROOT = Path(__file__).resolve().parent
-if str(_NOVOVIEW_ROOT) not in sys.path:
-    sys.path.insert(0, str(_NOVOVIEW_ROOT))
+_PROJECT_ROOT = Path(__file__).resolve().parent
+if str(_PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(_PROJECT_ROOT))
 
 
 # ---------------------------------------------------------------------------

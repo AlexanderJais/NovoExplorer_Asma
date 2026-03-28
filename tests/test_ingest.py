@@ -1,4 +1,4 @@
-"""Tests for the NovoView ingest module.
+"""Tests for the NovoExplorer ingest module.
 
 Validates directory discovery, expression matrix parsing, DEG parsing,
 enrichment parsing, sample info parsing, group inference, and end-to-end
@@ -13,7 +13,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-# Ensure the novoview package root is importable
+# Ensure the NovoExplorer package root is importable
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from pipeline.ingest import (
