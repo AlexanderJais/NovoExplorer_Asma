@@ -364,7 +364,7 @@ def _detect_enrichment_layout(enrichment_dir: Path) -> str:
 
         enrichment_dir/KEGG/{comparison}/{all|up|down}/*_KEGGenrich.xls
     """
-    _DB_NAMES = {"go", "kegg"}
+    _DB_NAMES = {"go", "kegg", "disgenet", "do", "reactome", "ppi"}
     for child in enrichment_dir.iterdir():
         if child.is_dir() and child.name.lower() in _DB_NAMES:
             return "database_first"
@@ -388,6 +388,10 @@ def _parse_enrichment_comparison_first(
     _DB_DIR_PATTERNS = {
         "GO": ("go*", "GO*"),
         "KEGG": ("kegg*", "KEGG*"),
+        "DisGeNET": ("disgenet*", "DisGeNET*", "DISGENET*"),
+        "DO": ("do", "DO"),
+        "Reactome": ("reactome*", "Reactome*", "REACTOME*"),
+        "PPI": ("ppi*", "PPI*"),
     }
 
     for subdir in sorted(enrichment_dir.iterdir()):
@@ -400,7 +404,6 @@ def _parse_enrichment_comparison_first(
         for db_name, db_patterns in _DB_DIR_PATTERNS.items():
             db_dirs = _iglob_dirs(subdir, db_patterns)
             if not db_dirs:
-                logger.warning("    No %s directory found for %s", db_name, comparison)
                 continue
 
             db_dir = db_dirs[0]
@@ -465,12 +468,15 @@ def _parse_enrichment_database_first(
     _DB_DIR_PATTERNS = {
         "GO": ("go*", "GO*"),
         "KEGG": ("kegg*", "KEGG*"),
+        "DisGeNET": ("disgenet*", "DisGeNET*", "DISGENET*"),
+        "DO": ("do", "DO"),
+        "Reactome": ("reactome*", "Reactome*", "REACTOME*"),
+        "PPI": ("ppi*", "PPI*"),
     }
 
     for db_name, db_patterns in _DB_DIR_PATTERNS.items():
         db_dirs = _iglob_dirs(enrichment_dir, db_patterns)
         if not db_dirs:
-            logger.info("  No %s directory found in enrichment root.", db_name)
             continue
         db_dir = db_dirs[0]
         logger.info("  Processing database-first enrichment: %s (%s)", db_name, db_dir.name)
