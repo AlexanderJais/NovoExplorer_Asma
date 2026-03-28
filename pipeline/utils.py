@@ -258,7 +258,7 @@ def standardize_enrichment_columns(df: pd.DataFrame) -> pd.DataFrame:
 
     column_candidates = {
         "term_id": [
-            "Term", "GO_term", "ID", "term_id", "GO_ID",
+            "Term", "GO_term", "ID", "term_id", "GO_ID", "GOID",
             "KEGG_ID", "KEGGID", "PathwayID",
         ],
         "term_name": [
