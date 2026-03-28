@@ -93,6 +93,10 @@ try:
     from plotting.ppi_network import build_ppi_network, build_ego_network
     _HAS_NETWORKX = True
 except ImportError:
+    import importlib.util as _ilu
+    if _ilu.find_spec("networkx") is not None:
+        # networkx is installed but something else went wrong – don't hide it
+        raise
     _HAS_NETWORKX = False
 
 # ---------------------------------------------------------------------------

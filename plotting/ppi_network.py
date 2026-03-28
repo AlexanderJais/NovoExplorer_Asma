@@ -16,11 +16,17 @@ def _nx():
     try:
         import networkx as _nx_mod
         return _nx_mod
-    except ImportError:
-        raise ImportError(
-            "networkx is required for PPI network visualisation. "
-            "Install it with:  pip install networkx"
-        )
+    except ImportError as exc:
+        # Only show the friendly message when networkx itself is missing.
+        # If networkx is installed but a transitive dependency fails,
+        # let the original error propagate so the real cause is visible.
+        import importlib.util
+        if importlib.util.find_spec("networkx") is None:
+            raise ImportError(
+                "networkx is required for PPI network visualisation. "
+                "Install it with:  pip install networkx"
+            ) from exc
+        raise
 
 
 def _build_graph(
