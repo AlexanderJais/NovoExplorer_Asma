@@ -14,6 +14,7 @@ import os
 import re
 import sys
 import zipfile
+from collections import Counter
 from datetime import datetime
 from pathlib import Path
 
@@ -109,6 +110,33 @@ WONG = [
 UP_COLOR = "#D55E00"
 DOWN_COLOR = "#0072B2"
 NS_COLOR = "#BBBBBB"
+
+# ---------------------------------------------------------------------------
+# Gene lookup helpers
+# ---------------------------------------------------------------------------
+
+
+def _lookup_gene(deg_df: pd.DataFrame, gene: str) -> pd.Series | None:
+    """Find a gene row in a DEG table, trying gene_name then gene_id."""
+    if deg_df.empty or "gene_name" not in deg_df.columns:
+        return None
+    hit = deg_df[deg_df["gene_name"].str.upper() == gene.upper()]
+    if hit.empty and "gene_id" in deg_df.columns:
+        hit = deg_df[deg_df["gene_id"].str.upper() == gene.upper()]
+    return hit.iloc[0] if not hit.empty else None
+
+
+def _build_fc_map(deg_df: pd.DataFrame) -> dict[str, float]:
+    """Build uppercase gene identifier -> log2FC mapping (vectorized)."""
+    fc_map: dict[str, float] = {}
+    if deg_df.empty or "log2fc" not in deg_df.columns:
+        return fc_map
+    if "gene_name" in deg_df.columns:
+        fc_map.update(dict(zip(deg_df["gene_name"].str.upper(), deg_df["log2fc"])))
+    if "gene_id" in deg_df.columns:
+        fc_map.update(dict(zip(deg_df["gene_id"].str.upper(), deg_df["log2fc"])))
+    return fc_map
+
 
 # ---------------------------------------------------------------------------
 # Data loading helpers
@@ -1307,16 +1335,9 @@ with tab_pathway:
                             comp_deg = deg.get(pw_comp, pd.DataFrame())
                             gene_rows = []
                             for g in term_genes:
-                                if "gene_name" not in comp_deg.columns:
-                                    break
-                                hit = comp_deg[comp_deg["gene_name"].str.upper() == g.upper()]
-                                # Fall back to matching by gene_id (handles ENSG identifiers)
-                                if hit.empty and "gene_id" in comp_deg.columns:
-                                    hit = comp_deg[comp_deg["gene_id"].str.upper() == g.upper()]
-                                if not hit.empty:
-                                    r = hit.iloc[0]
+                                r = _lookup_gene(comp_deg, g)
+                                if r is not None:
                                     display_name = r.get("gene_name", g)
-                                    # Prefer human-readable gene_name over ENSG id
                                     if pd.isna(display_name) or str(display_name).startswith("ENSG"):
                                         display_name = g
                                     gene_rows.append({
@@ -1358,13 +1379,9 @@ with tab_pathway:
                                     for g in pw_gene_df["Gene"]:
                                         row_data: dict[str, float] = {}
                                         for cname, cdf in sorted(deg.items()):
-                                            if "gene_name" not in cdf.columns:
-                                                continue
-                                            hit = cdf[cdf["gene_name"].str.upper() == g.upper()]
-                                            if hit.empty and "gene_id" in cdf.columns:
-                                                hit = cdf[cdf["gene_id"].str.upper() == g.upper()]
-                                            if not hit.empty:
-                                                row_data[cname] = hit.iloc[0].get("log2fc", np.nan)
+                                            hit = _lookup_gene(cdf, g)
+                                            if hit is not None:
+                                                row_data[cname] = hit.get("log2fc", np.nan)
                                         if row_data:
                                             row_data["gene"] = g
                                             matrix_rows.append(row_data)
@@ -1420,9 +1437,9 @@ with tab_ppi:
                     value=min_score + (max_score - min_score) * 0.5,
                     key="ppi_score",
                 )
-                ppi_filtered = ppi_df[ppi_df["score"] >= score_thresh].copy()
+                ppi_filtered = ppi_df[ppi_df["score"] >= score_thresh]
             else:
-                ppi_filtered = ppi_df.copy()
+                ppi_filtered = ppi_df
 
         with col_f2:
             st.metric("Interactions (filtered)", f"{len(ppi_filtered):,}")
@@ -1455,14 +1472,13 @@ with tab_ppi:
                     ppi_filtered[src_col].str.upper().isin(gene_set)
                     | ppi_filtered[tgt_col].str.upper().isin(gene_set)
                 )
-                ppi_view = ppi_filtered[mask].copy()
+                ppi_view = ppi_filtered[mask]
                 st.caption(f"Showing {len(ppi_view):,} interactions involving selected gene(s).")
             else:
                 ppi_view = ppi_filtered
 
             # ---- Hub gene analysis (top connected genes) ----
             st.subheader("Hub Genes (most connected)")
-            from collections import Counter
             degree_counts = Counter(
                 ppi_view[src_col].dropna().astype(str).tolist()
                 + ppi_view[tgt_col].dropna().astype(str).tolist()
@@ -1474,16 +1490,8 @@ with tab_ppi:
                 hub_df = pd.DataFrame(top_hubs, columns=["Gene", "Connections"])
 
                 # Annotate with log2FC from DEG data if available
-                comp_deg = deg.get(ppi_comp, pd.DataFrame())
-                if not comp_deg.empty and "gene_name" in comp_deg.columns:
-                    fc_map = {}
-                    for _, row in comp_deg.iterrows():
-                        gn = str(row.get("gene_name", ""))
-                        if gn and "log2fc" in row.index:
-                            fc_map[gn.upper()] = row["log2fc"]
-                        gid = str(row.get("gene_id", ""))
-                        if gid and "log2fc" in row.index:
-                            fc_map[gid.upper()] = row["log2fc"]
+                fc_map = _build_fc_map(deg.get(ppi_comp, pd.DataFrame()))
+                if fc_map:
                     hub_df["log2FC"] = hub_df["Gene"].str.upper().map(fc_map)
 
                 # Bar chart of hub genes

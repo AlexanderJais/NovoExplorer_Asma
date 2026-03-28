@@ -15,6 +15,7 @@ from typing import Any, Dict, List, Optional
 import pandas as pd
 
 from pipeline.utils import (
+    find_column,
     read_table_flexible,
     setup_logger,
     standardize_deg_columns,
@@ -82,6 +83,22 @@ def _iglob_files(base: Path, patterns: tuple[str, ...]) -> List[Path]:
                 found.append(child)
                 break
     return found
+
+
+def _find_files_prefer_all(comp_dir: Path, file_patterns: tuple[str, ...]) -> List[Path]:
+    """Find files in *comp_dir*, falling back to subdirectories (prefer ``all/``)."""
+    files = _iglob_files(comp_dir, file_patterns)
+    if files:
+        return files
+    reg_dirs = sorted(
+        [d for d in comp_dir.iterdir() if d.is_dir()],
+        key=lambda d: (0 if d.name.lower() == "all" else 1, d.name.lower()),
+    )
+    for reg_dir in reg_dirs:
+        files = _iglob_files(reg_dir, file_patterns)
+        if files:
+            return files
+    return []
 
 
 # Regex for numbered container folders like "1.deglist", "2.cluster", "3.enrichment"
@@ -580,21 +597,7 @@ def _parse_enrichment_database_first(
             comparison = comp_dir.name
             logger.info("    Comparison: %s", comparison)
 
-            # Try to find enrichment files directly in the comparison dir
-            enrich_files = _iglob_files(comp_dir, _ENRICH_FILE_PATTERNS)
-
-            if not enrich_files:
-                # Look inside regulation sub-dirs (all/, up/, down/) — prefer "all"
-                reg_dirs = sorted(comp_dir.iterdir())
-                # Sort so "all" comes first if it exists
-                reg_dirs_sorted = sorted(
-                    [d for d in reg_dirs if d.is_dir()],
-                    key=lambda d: (0 if d.name.lower() == "all" else 1, d.name.lower()),
-                )
-                for reg_dir in reg_dirs_sorted:
-                    enrich_files = _iglob_files(reg_dir, _ENRICH_FILE_PATTERNS)
-                    if enrich_files:
-                        break
+            enrich_files = _find_files_prefer_all(comp_dir, _ENRICH_FILE_PATTERNS)
 
             if not enrich_files:
                 logger.warning("      No enrichment files found for %s/%s", db_name, comparison)
@@ -685,20 +688,11 @@ _PPI_FILE_PATTERNS = (
 )
 
 # Expected columns (lowercase) for PPI interaction tables
-_PPI_NODE1_GENE = {"node1_gene", "source_gene", "gene1", "genea"}
-_PPI_NODE2_GENE = {"node2_gene", "target_gene", "gene2", "geneb"}
-_PPI_NODE1_NAME = {"node1_name", "source_name", "name1", "namea"}
-_PPI_NODE2_NAME = {"node2_name", "target_name", "name2", "nameb"}
-_PPI_SCORE = {"score", "combined_score", "confidence", "weight"}
-
-
-def _find_ppi_col(df_columns: list[str], aliases: set[str]) -> Optional[str]:
-    """Return the first column in *df_columns* matching any alias (case-insensitive)."""
-    lower_map = {c.lower().strip(): c for c in df_columns}
-    for alias in aliases:
-        if alias in lower_map:
-            return lower_map[alias]
-    return None
+_PPI_NODE1_GENE = ["node1_gene", "source_gene", "gene1", "genea"]
+_PPI_NODE2_GENE = ["node2_gene", "target_gene", "gene2", "geneb"]
+_PPI_NODE1_NAME = ["node1_name", "source_name", "name1", "namea"]
+_PPI_NODE2_NAME = ["node2_name", "target_name", "name2", "nameb"]
+_PPI_SCORE = ["score", "combined_score", "confidence", "weight"]
 
 
 def parse_ppi_results(
@@ -741,17 +735,7 @@ def parse_ppi_results(
             continue
         comparison = comp_dir.name
 
-        # Find files directly or inside regulation sub-dirs (prefer "all")
-        ppi_files = _iglob_files(comp_dir, _PPI_FILE_PATTERNS)
-        if not ppi_files:
-            reg_dirs = sorted(
-                [d for d in comp_dir.iterdir() if d.is_dir()],
-                key=lambda d: (0 if d.name.lower() == "all" else 1, d.name.lower()),
-            )
-            for reg_dir in reg_dirs:
-                ppi_files = _iglob_files(reg_dir, _PPI_FILE_PATTERNS)
-                if ppi_files:
-                    break
+        ppi_files = _find_files_prefer_all(comp_dir, _PPI_FILE_PATTERNS)
 
         if not ppi_files:
             logger.warning("    No PPI files found for %s", comparison)
@@ -769,12 +753,11 @@ def parse_ppi_results(
             continue
 
         # Standardise column names
-        cols = list(df.columns)
-        src_gene = _find_ppi_col(cols, _PPI_NODE1_GENE)
-        tgt_gene = _find_ppi_col(cols, _PPI_NODE2_GENE)
-        src_name = _find_ppi_col(cols, _PPI_NODE1_NAME)
-        tgt_name = _find_ppi_col(cols, _PPI_NODE2_NAME)
-        score_col = _find_ppi_col(cols, _PPI_SCORE)
+        src_gene = find_column(df, _PPI_NODE1_GENE)
+        tgt_gene = find_column(df, _PPI_NODE2_GENE)
+        src_name = find_column(df, _PPI_NODE1_NAME)
+        tgt_name = find_column(df, _PPI_NODE2_NAME)
+        score_col = find_column(df, _PPI_SCORE)
 
         rename_map: dict[str, str] = {}
         if src_gene:
