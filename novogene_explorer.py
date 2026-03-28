@@ -8,10 +8,12 @@ Or run without arguments and enter the path interactively.
 
 from __future__ import annotations
 
+import io
 import logging
 import os
 import re
 import sys
+import zipfile
 from datetime import datetime
 from pathlib import Path
 
@@ -345,8 +347,10 @@ with st.sidebar.expander("Log", expanded=False):
 # Main tabs
 # ---------------------------------------------------------------------------
 
-tab_overview, tab_gene, tab_comparison, tab_enrichment = st.tabs([
+(tab_overview, tab_gene, tab_comparison, tab_enrichment,
+ tab_ma, tab_venn, tab_ranked, tab_degsummary, tab_pathway, tab_export) = st.tabs([
     "Overview", "Gene Explorer", "Comparison Browser", "Enrichment",
+    "MA Plot", "Venn / UpSet", "Ranked Genes", "DEG Summary", "Pathway Viewer", "Export",
 ])
 
 
@@ -861,3 +865,562 @@ with tab_enrichment:
                         st.plotly_chart(fig, use_container_width=True)
                 else:
                     st.info(f"No enrichment terms matching **{term_query}** found.")
+
+
+# =========================================================================
+# TAB 5: MA Plot
+# =========================================================================
+with tab_ma:
+    st.header("MA Plot")
+    st.caption("Mean expression (baseMean) vs log2 fold change — highlights expression-dependent changes.")
+
+    if not deg:
+        st.warning("No DEG data loaded.")
+    else:
+        ma_comp = st.selectbox("Select comparison", sorted(deg.keys()), key="ma_comp_select")
+        ma_df = deg[ma_comp]
+
+        has_ma_cols = {"log2fc", "padj"}.issubset(set(ma_df.columns)) and "basemean" in ma_df.columns
+        if not has_ma_cols:
+            st.warning("DEG table missing required columns (log2fc, padj, basemean).")
+        else:
+            col_ma1, col_ma2 = st.columns(2)
+            with col_ma1:
+                ma_padj = st.slider("padj threshold", 0.001, 0.1, 0.05, 0.005, key="ma_padj")
+            with col_ma2:
+                ma_fc = st.slider("|log2FC| threshold", 0.0, 5.0, 1.0, 0.25, key="ma_fc")
+
+            ma_plot = ma_df.dropna(subset=["log2fc", "padj", "basemean"]).copy()
+            ma_plot["log10_basemean"] = np.log10(ma_plot["basemean"].clip(lower=1e-1))
+
+            sig = ma_plot["padj"] < ma_padj
+            up = sig & (ma_plot["log2fc"] >= ma_fc)
+            down = sig & (ma_plot["log2fc"] <= -ma_fc)
+            ma_plot["category"] = "ns"
+            ma_plot.loc[up, "category"] = "up"
+            ma_plot.loc[down, "category"] = "down"
+
+            fig = go.Figure()
+            for cat, color in {"up": UP_COLOR, "down": DOWN_COLOR, "ns": NS_COLOR}.items():
+                mask = ma_plot["category"] == cat
+                subset = ma_plot[mask]
+                fig.add_trace(go.Scattergl(
+                    x=subset["log10_basemean"],
+                    y=subset["log2fc"],
+                    mode="markers",
+                    marker=dict(color=color, size=4, opacity=0.5),
+                    name=cat.capitalize() if cat != "ns" else "NS",
+                    text=subset.get("gene_name", pd.Series(dtype=str)),
+                    hovertemplate="<b>%{text}</b><br>log10(baseMean): %{x:.2f}<br>log2FC: %{y:.3f}<extra></extra>",
+                ))
+            fig.add_hline(y=0, line_dash="dash", line_color="gray", line_width=0.8)
+            fig.add_hline(y=ma_fc, line_dash="dot", line_color="gray", line_width=0.6)
+            fig.add_hline(y=-ma_fc, line_dash="dot", line_color="gray", line_width=0.6)
+            fig.update_layout(
+                title=dict(text=f"MA Plot — {ma_comp}", font=dict(size=18)),
+                xaxis_title="log10(baseMean)",
+                yaxis_title="log2 Fold Change",
+                height=550,
+                font=dict(size=14),
+                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, font=dict(size=13)),
+            )
+            st.plotly_chart(fig, use_container_width=True)
+
+            col_m1, col_m2, col_m3 = st.columns(3)
+            col_m1.metric("Upregulated", f"{up.sum():,}")
+            col_m2.metric("Downregulated", f"{down.sum():,}")
+            col_m3.metric("Not significant", f"{(~sig).sum():,}")
+
+
+# =========================================================================
+# TAB 6: Venn / UpSet
+# =========================================================================
+with tab_venn:
+    st.header("Venn / UpSet Diagram")
+    st.caption("Compare significant DEG overlap across comparisons.")
+
+    if not deg:
+        st.warning("No DEG data loaded.")
+    elif len(deg) < 2:
+        st.info("Need at least 2 comparisons for overlap analysis.")
+    else:
+        venn_comps = sorted(deg.keys())
+        selected_venn = st.multiselect(
+            "Select comparisons (2–5 recommended)",
+            venn_comps, default=venn_comps[:min(3, len(venn_comps))],
+            key="venn_comps",
+        )
+
+        col_v1, col_v2 = st.columns(2)
+        with col_v1:
+            venn_padj = st.slider("padj threshold", 0.001, 0.1, 0.05, 0.005, key="venn_padj")
+        with col_v2:
+            venn_fc = st.slider("|log2FC| threshold", 0.0, 5.0, 1.0, 0.25, key="venn_fc")
+
+        venn_direction = st.radio(
+            "Include", ["All significant", "Upregulated only", "Downregulated only"],
+            horizontal=True, key="venn_dir",
+        )
+
+        if len(selected_venn) >= 2:
+            # Build gene sets per comparison
+            gene_sets: dict[str, set[str]] = {}
+            for comp in selected_venn:
+                df = deg[comp]
+                if not {"log2fc", "padj", "gene_name"}.issubset(set(df.columns)):
+                    continue
+                sig_mask = df["padj"] < venn_padj
+                if venn_direction == "All significant":
+                    sig_mask &= df["log2fc"].abs() >= venn_fc
+                elif venn_direction == "Upregulated only":
+                    sig_mask &= df["log2fc"] >= venn_fc
+                else:
+                    sig_mask &= df["log2fc"] <= -venn_fc
+                gene_sets[comp] = set(df.loc[sig_mask, "gene_name"].dropna())
+
+            if not gene_sets:
+                st.warning("No valid comparisons with the required columns.")
+            else:
+                # Compute all intersections for UpSet-style display
+                set_names = list(gene_sets.keys())
+                all_genes = set().union(*gene_sets.values())
+
+                # Build membership matrix
+                membership = {}
+                for g in all_genes:
+                    key = tuple(g in gene_sets[s] for s in set_names)
+                    membership.setdefault(key, []).append(g)
+
+                # Sort by intersection size
+                intersections = sorted(membership.items(), key=lambda x: len(x[1]), reverse=True)
+
+                # UpSet-style bar chart
+                bar_labels = []
+                bar_sizes = []
+                bar_genes_list = []
+                for key, genes in intersections:
+                    label = " ∩ ".join(s for s, m in zip(set_names, key) if m)
+                    bar_labels.append(label)
+                    bar_sizes.append(len(genes))
+                    bar_genes_list.append(genes)
+
+                fig = go.Figure()
+                fig.add_trace(go.Bar(
+                    x=bar_labels[:20],
+                    y=bar_sizes[:20],
+                    marker_color=WONG[0],
+                    hovertemplate="<b>%{x}</b><br>%{y} genes<extra></extra>",
+                ))
+                fig.update_layout(
+                    title=dict(text="Intersection Sizes (UpSet-style)", font=dict(size=18)),
+                    xaxis_title="", yaxis_title="Gene Count",
+                    xaxis_tickangle=-45, height=500,
+                    font=dict(size=14),
+                )
+                st.plotly_chart(fig, use_container_width=True)
+
+                # Set size summary
+                st.subheader("Set Sizes")
+                size_df = pd.DataFrame([
+                    {"Comparison": s, "Significant genes": len(g)}
+                    for s, g in gene_sets.items()
+                ])
+                st.dataframe(size_df, use_container_width=True, hide_index=True)
+
+                # Intersection detail
+                st.subheader("Intersection Details")
+                detail_rows = []
+                for key, genes in intersections:
+                    label = " ∩ ".join(s for s, m in zip(set_names, key) if m)
+                    only_in = " only" if sum(key) == 1 else ""
+                    for g in sorted(genes):
+                        detail_rows.append({"Intersection": label + only_in, "Gene": g})
+                detail_df = pd.DataFrame(detail_rows)
+                st.dataframe(detail_df, use_container_width=True, hide_index=True, height=400)
+        else:
+            st.info("Select at least 2 comparisons above.")
+
+
+# =========================================================================
+# TAB 7: Ranked Genes
+# =========================================================================
+with tab_ranked:
+    st.header("Ranked Gene List")
+    st.caption("All genes ranked by fold change or significance, with cumulative enrichment view.")
+
+    if not deg:
+        st.warning("No DEG data loaded.")
+    else:
+        rank_comp = st.selectbox("Select comparison", sorted(deg.keys()), key="rank_comp_select")
+        rank_df = deg[rank_comp].copy()
+
+        if not {"log2fc", "padj", "gene_name"}.issubset(set(rank_df.columns)):
+            st.warning("DEG table missing required columns.")
+        else:
+            rank_by = st.radio(
+                "Rank by", ["log2FC (descending)", "padj (ascending)", "Absolute log2FC (descending)"],
+                horizontal=True, key="rank_by",
+            )
+            rank_padj = st.slider("padj threshold for highlighting", 0.001, 0.1, 0.05, 0.005, key="rank_padj")
+
+            ranked = rank_df.dropna(subset=["log2fc", "padj"]).copy()
+            if rank_by == "log2FC (descending)":
+                ranked = ranked.sort_values("log2fc", ascending=False)
+            elif rank_by == "padj (ascending)":
+                ranked = ranked.sort_values("padj", ascending=True)
+            else:
+                ranked = ranked.sort_values("log2fc", key=lambda x: x.abs(), ascending=False)
+
+            ranked = ranked.reset_index(drop=True)
+            ranked["rank"] = range(1, len(ranked) + 1)
+            ranked["significant"] = ranked["padj"] < rank_padj
+
+            # Waterfall-style plot: rank vs log2FC
+            fig = go.Figure()
+            sig_mask = ranked["significant"]
+            for mask, color, name in [(sig_mask, UP_COLOR, "Significant"), (~sig_mask, NS_COLOR, "NS")]:
+                subset = ranked[mask]
+                fig.add_trace(go.Scattergl(
+                    x=subset["rank"],
+                    y=subset["log2fc"],
+                    mode="markers",
+                    marker=dict(color=color, size=3, opacity=0.6),
+                    name=name,
+                    text=subset["gene_name"],
+                    hovertemplate="<b>%{text}</b><br>Rank: %{x}<br>log2FC: %{y:.3f}<extra></extra>",
+                ))
+            fig.add_hline(y=0, line_dash="dash", line_color="gray", line_width=0.8)
+            fig.update_layout(
+                title=dict(text=f"Ranked Genes — {rank_comp}", font=dict(size=18)),
+                xaxis_title="Rank",
+                yaxis_title="log2 Fold Change",
+                height=500,
+                font=dict(size=14),
+            )
+            st.plotly_chart(fig, use_container_width=True)
+
+            # Stats
+            n_sig = sig_mask.sum()
+            col_r1, col_r2, col_r3 = st.columns(3)
+            col_r1.metric("Total genes", f"{len(ranked):,}")
+            col_r2.metric("Significant", f"{n_sig:,}")
+            col_r3.metric("% Significant", f"{100 * n_sig / len(ranked):.1f}%")
+
+            # Top / bottom genes tables
+            col_top, col_bot = st.columns(2)
+            n_show = st.slider("Show top/bottom N genes", 10, 100, 25, key="rank_n_show")
+            with col_top:
+                st.subheader(f"Top {n_show} upregulated")
+                top_up = rank_df.dropna(subset=["log2fc", "padj"]).nlargest(n_show, "log2fc")
+                display_cols = [c for c in ["gene_name", "log2fc", "padj", "basemean"] if c in top_up.columns]
+                st.dataframe(top_up[display_cols], use_container_width=True, hide_index=True)
+            with col_bot:
+                st.subheader(f"Top {n_show} downregulated")
+                top_down = rank_df.dropna(subset=["log2fc", "padj"]).nsmallest(n_show, "log2fc")
+                st.dataframe(top_down[display_cols], use_container_width=True, hide_index=True)
+
+
+# =========================================================================
+# TAB 8: DEG Summary Table
+# =========================================================================
+with tab_degsummary:
+    st.header("DEG Summary Table")
+    st.caption("Side-by-side log2FC and padj for each gene across all comparisons.")
+
+    if not deg:
+        st.warning("No DEG data loaded.")
+    else:
+        summary_padj = st.slider(
+            "padj threshold (highlight significant)", 0.001, 0.1, 0.05, 0.005,
+            key="summary_padj",
+        )
+        summary_fc = st.slider(
+            "|log2FC| threshold", 0.0, 5.0, 1.0, 0.25, key="summary_fc",
+        )
+        show_mode = st.radio(
+            "Show", ["All genes", "Significant in at least 1 comparison", "Significant in all comparisons"],
+            horizontal=True, key="summary_mode",
+        )
+
+        # Build wide matrix
+        all_comps = sorted(deg.keys())
+        fc_frames = []
+        padj_frames = []
+        for comp in all_comps:
+            df = deg[comp]
+            if "gene_name" not in df.columns:
+                continue
+            sub = df.set_index("gene_name")
+            if "log2fc" in sub.columns:
+                fc_frames.append(sub[["log2fc"]].rename(columns={"log2fc": f"{comp}|log2FC"}))
+            if "padj" in sub.columns:
+                padj_frames.append(sub[["padj"]].rename(columns={"padj": f"{comp}|padj"}))
+
+        if not fc_frames:
+            st.warning("No gene-level data available.")
+        else:
+            wide_fc = pd.concat(fc_frames, axis=1)
+            wide_padj = pd.concat(padj_frames, axis=1) if padj_frames else pd.DataFrame(index=wide_fc.index)
+            wide = pd.concat([wide_fc, wide_padj], axis=1)
+
+            # Filtering
+            if show_mode != "All genes":
+                padj_cols = [c for c in wide.columns if c.endswith("|padj")]
+                fc_cols = [c for c in wide.columns if c.endswith("|log2FC")]
+                sig_per_comp = pd.DataFrame(index=wide.index)
+                for pc, fc in zip(padj_cols, fc_cols):
+                    sig_per_comp[pc] = (wide[pc] < summary_padj) & (wide[fc].abs() >= summary_fc)
+                if show_mode == "Significant in at least 1 comparison":
+                    mask = sig_per_comp.any(axis=1)
+                else:
+                    mask = sig_per_comp.all(axis=1)
+                wide = wide[mask]
+
+            # Reorder columns: alternate FC and padj per comparison
+            ordered_cols = []
+            for comp in all_comps:
+                fc_col = f"{comp}|log2FC"
+                padj_col = f"{comp}|padj"
+                if fc_col in wide.columns:
+                    ordered_cols.append(fc_col)
+                if padj_col in wide.columns:
+                    ordered_cols.append(padj_col)
+            wide = wide[[c for c in ordered_cols if c in wide.columns]]
+
+            st.caption(f"{len(wide):,} genes shown")
+
+            gene_search = st.text_input("Filter by gene name", key="summary_gene_filter")
+            if gene_search:
+                wide = wide[wide.index.str.contains(gene_search, case=False, na=False)]
+
+            st.dataframe(wide, use_container_width=True, height=600)
+
+            # Download as Excel
+            buffer = io.BytesIO()
+            wide.to_excel(buffer, engine="openpyxl")
+            st.download_button(
+                "📥 Download as Excel",
+                data=buffer.getvalue(),
+                file_name="deg_summary.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                key="summary_download",
+            )
+
+
+# =========================================================================
+# TAB 9: Pathway Viewer
+# =========================================================================
+with tab_pathway:
+    st.header("Pathway Viewer")
+    st.caption("Select an enriched term and see its member genes colored by log2FC.")
+
+    if not enrichment:
+        st.warning("No enrichment data loaded.")
+    elif not deg:
+        st.warning("No DEG data loaded.")
+    else:
+        pw_comp = st.selectbox("Select comparison", sorted(enrichment.keys()), key="pw_comp")
+        pw_dbs = sorted(enrichment[pw_comp].keys())
+
+        if not pw_dbs:
+            st.info("No enrichment databases for this comparison.")
+        else:
+            pw_db = st.radio("Database", pw_dbs, horizontal=True, key="pw_db")
+            pw_df = standardize_enrichment_columns(enrichment[pw_comp][pw_db].copy())
+
+            term_col = "term_name" if "term_name" in pw_df.columns else (
+                "Description" if "Description" in pw_df.columns else None
+            )
+            if term_col is None:
+                st.warning("No term name column found in enrichment data.")
+            else:
+                # Filter to significant
+                pw_padj_thresh = st.slider("padj threshold", 0.001, 0.5, 0.05, 0.005, key="pw_padj")
+                if "padj" in pw_df.columns:
+                    pw_sig = pw_df[pw_df["padj"] < pw_padj_thresh]
+                else:
+                    pw_sig = pw_df
+
+                if pw_sig.empty:
+                    st.info("No significant terms at this threshold.")
+                else:
+                    term_options = pw_sig[term_col].tolist()
+                    selected_term = st.selectbox("Select pathway / GO term", term_options, key="pw_term")
+                    term_row = pw_sig[pw_sig[term_col] == selected_term].iloc[0]
+
+                    # Extract gene list
+                    genes_col = "genes" if "genes" in pw_sig.columns else None
+                    if genes_col is None:
+                        st.info("No gene list column found in enrichment data for this term.")
+                    else:
+                        raw_genes = str(term_row[genes_col])
+                        # Genes may be separated by / , ; or space
+                        term_genes = [g.strip() for g in re.split(r"[/,;\s]+", raw_genes) if g.strip()]
+
+                        if not term_genes:
+                            st.info("No genes listed for this term.")
+                        else:
+                            st.caption(f"**{selected_term}** — {len(term_genes)} genes")
+                            if "padj" in term_row.index:
+                                st.caption(f"Term padj = {term_row['padj']:.2e}")
+
+                            # Look up log2FC for these genes in the DEG data
+                            comp_deg = deg.get(pw_comp, pd.DataFrame())
+                            gene_rows = []
+                            for g in term_genes:
+                                if "gene_name" not in comp_deg.columns:
+                                    break
+                                hit = comp_deg[comp_deg["gene_name"].str.upper() == g.upper()]
+                                if not hit.empty:
+                                    r = hit.iloc[0]
+                                    gene_rows.append({
+                                        "Gene": g,
+                                        "log2FC": r.get("log2fc", np.nan),
+                                        "padj": r.get("padj", np.nan),
+                                        "basemean": r.get("basemean", np.nan),
+                                    })
+                                else:
+                                    gene_rows.append({"Gene": g, "log2FC": np.nan, "padj": np.nan, "basemean": np.nan})
+
+                            if gene_rows:
+                                pw_gene_df = pd.DataFrame(gene_rows).sort_values("log2FC", ascending=False)
+
+                                # Bar chart colored by log2FC
+                                fig = go.Figure()
+                                colors = [UP_COLOR if v > 0 else DOWN_COLOR if v < 0 else NS_COLOR
+                                          for v in pw_gene_df["log2FC"].fillna(0)]
+                                fig.add_trace(go.Bar(
+                                    x=pw_gene_df["Gene"],
+                                    y=pw_gene_df["log2FC"],
+                                    marker_color=colors,
+                                    hovertemplate="<b>%{x}</b><br>log2FC: %{y:.3f}<extra></extra>",
+                                ))
+                                fig.add_hline(y=0, line_dash="dash", line_color="gray", line_width=0.8)
+                                fig.update_layout(
+                                    title=dict(text=f"{selected_term}", font=dict(size=16)),
+                                    xaxis_title="Gene", yaxis_title="log2 Fold Change",
+                                    xaxis_tickangle=-45,
+                                    height=max(400, 20 * len(pw_gene_df) + 200),
+                                    font=dict(size=14),
+                                )
+                                st.plotly_chart(fig, use_container_width=True)
+
+                                # Cross-comparison heatmap for these genes
+                                if len(deg) > 1:
+                                    st.subheader("Across all comparisons")
+                                    matrix_rows = []
+                                    for g in pw_gene_df["Gene"]:
+                                        row_data: dict[str, float] = {}
+                                        for cname, cdf in sorted(deg.items()):
+                                            if "gene_name" not in cdf.columns:
+                                                continue
+                                            hit = cdf[cdf["gene_name"].str.upper() == g.upper()]
+                                            if not hit.empty:
+                                                row_data[cname] = hit.iloc[0].get("log2fc", np.nan)
+                                        if row_data:
+                                            row_data["gene"] = g
+                                            matrix_rows.append(row_data)
+
+                                    if matrix_rows:
+                                        mx = pd.DataFrame(matrix_rows).set_index("gene")
+                                        fig_hm = px.imshow(
+                                            mx.values.astype(float),
+                                            x=mx.columns.tolist(),
+                                            y=mx.index.tolist(),
+                                            color_continuous_scale="RdBu_r",
+                                            color_continuous_midpoint=0,
+                                            aspect="auto",
+                                            labels=dict(x="Comparison", y="Gene", color="log2FC"),
+                                            title=f"{selected_term} — log2FC across comparisons",
+                                        )
+                                        fig_hm.update_layout(
+                                            xaxis_tickangle=-45,
+                                            height=max(350, 30 * len(mx) + 200),
+                                            font=dict(size=13),
+                                        )
+                                        st.plotly_chart(fig_hm, use_container_width=True)
+
+                                # Data table
+                                st.dataframe(pw_gene_df, use_container_width=True, hide_index=True)
+
+
+# =========================================================================
+# TAB 10: Export / Report
+# =========================================================================
+with tab_export:
+    st.header("Export / Report")
+    st.caption("Download filtered DEG lists, enrichment results, and data as a ZIP or Excel workbook.")
+
+    if not deg and not enrichment:
+        st.warning("No data loaded to export.")
+    else:
+        export_padj = st.slider("padj threshold", 0.001, 0.1, 0.05, 0.005, key="export_padj")
+        export_fc = st.slider("|log2FC| threshold", 0.0, 5.0, 1.0, 0.25, key="export_fc")
+        sig_only = st.checkbox("Export significant genes only", value=True, key="export_sig_only")
+
+        st.divider()
+
+        # --- Excel workbook ---
+        st.subheader("Excel Workbook")
+        st.caption("All comparisons in one Excel file, one sheet per comparison.")
+
+        if st.button("Generate Excel workbook", key="export_excel_btn"):
+            buffer = io.BytesIO()
+            with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+                for comp_name in sorted(deg.keys()):
+                    df = deg[comp_name].copy()
+                    if sig_only and {"log2fc", "padj"}.issubset(set(df.columns)):
+                        df = df[(df["padj"] < export_padj) & (df["log2fc"].abs() >= export_fc)]
+                    sheet_name = comp_name[:31]  # Excel sheet name limit
+                    df.to_excel(writer, sheet_name=sheet_name, index=False)
+
+                # Add enrichment sheets
+                for comp_name, comp_data in sorted(enrichment.items()):
+                    for db_name, db_df in comp_data.items():
+                        edf = standardize_enrichment_columns(db_df.copy())
+                        if sig_only and "padj" in edf.columns:
+                            edf = edf[edf["padj"] < export_padj]
+                        sheet_name = f"{comp_name[:20]}_{db_name}"[:31]
+                        edf.to_excel(writer, sheet_name=sheet_name, index=False)
+
+            st.download_button(
+                "📥 Download Excel workbook",
+                data=buffer.getvalue(),
+                file_name="novogene_results.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                key="export_excel_download",
+            )
+
+        st.divider()
+
+        # --- ZIP of CSVs ---
+        st.subheader("ZIP Archive (CSVs)")
+        st.caption("Individual CSV files per comparison and enrichment database.")
+
+        if st.button("Generate ZIP archive", key="export_zip_btn"):
+            buffer = io.BytesIO()
+            with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+                for comp_name in sorted(deg.keys()):
+                    df = deg[comp_name].copy()
+                    if sig_only and {"log2fc", "padj"}.issubset(set(df.columns)):
+                        df = df[(df["padj"] < export_padj) & (df["log2fc"].abs() >= export_fc)]
+                    csv_buf = io.StringIO()
+                    df.to_csv(csv_buf, index=False)
+                    zf.writestr(f"deg/{comp_name}.csv", csv_buf.getvalue())
+
+                for comp_name, comp_data in sorted(enrichment.items()):
+                    for db_name, db_df in comp_data.items():
+                        edf = standardize_enrichment_columns(db_df.copy())
+                        if sig_only and "padj" in edf.columns:
+                            edf = edf[edf["padj"] < export_padj]
+                        csv_buf = io.StringIO()
+                        edf.to_csv(csv_buf, index=False)
+                        zf.writestr(f"enrichment/{comp_name}_{db_name}.csv", csv_buf.getvalue())
+
+            st.download_button(
+                "📥 Download ZIP archive",
+                data=buffer.getvalue(),
+                file_name="novogene_results.zip",
+                mime="application/zip",
+                key="export_zip_download",
+            )
