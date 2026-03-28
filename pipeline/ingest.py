@@ -328,7 +328,10 @@ def parse_deg_results(deg_dir: str | Path | None) -> Dict[str, pd.DataFrame]:
             logger.warning("    No DEG table found for comparison %s", comparison)
             continue
 
-        fpath = deg_files[0]
+        # Prefer the full gene list (*_deg.xls) over filtered subsets
+        # (*_deg_all.xls, *_deg_up.xls, *_deg_down.xls).
+        preferred = [f for f in deg_files if re.fullmatch(r".*_deg\.xls", f.name, re.IGNORECASE)]
+        fpath = preferred[0] if preferred else deg_files[0]
         logger.info("    Parsing: %s", fpath)
         try:
             df = read_table_flexible(fpath)
@@ -648,8 +651,9 @@ def parse_sample_info(file_path: str | Path | None) -> Optional[pd.DataFrame]:
 def infer_groups_from_comparisons(deg_results: Dict[str, pd.DataFrame]) -> Dict[str, List[str]]:
     """Extract group names from DEG comparison folder names.
 
-    Splits each comparison name on ``'_vs_'`` (case-insensitive) and collects
-    unique group names.
+    Splits each comparison name on ``'_vs_'`` (case-insensitive), falling
+    back to ``'vs'`` without underscores for Novogene naming conventions
+    like ``GroupAvs GroupB``.
 
     Returns ``{"groups": [group1, group2, ...], "comparisons": [comp1, ...]}``.
     """
@@ -658,7 +662,10 @@ def infer_groups_from_comparisons(deg_results: Dict[str, pd.DataFrame]) -> Dict[
 
     for comp_name in sorted(deg_results.keys()):
         comparisons.append(comp_name)
+        # Try _vs_ first (e.g. GroupA_vs_GroupB), then plain vs (e.g. GroupAvsGroupB)
         parts = re.split(r"_vs_", comp_name, flags=re.IGNORECASE)
+        if len(parts) == 1:
+            parts = re.split(r"vs", comp_name, maxsplit=1, flags=re.IGNORECASE)
         for part in parts:
             stripped = part.strip()
             if stripped:

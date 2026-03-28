@@ -363,6 +363,26 @@ class TestInferGroupsFromComparisons:
 
         assert result["comparisons"] == ["A_vs_M", "Z_vs_A"]
 
+    def test_novogene_vs_without_underscores(self) -> None:
+        """Novogene uses 'GroupAvsGroupB' without underscores around 'vs'."""
+        deg_results = {
+            "PS139_1_IL13_ALLvsCTRL_IL13_ALL": pd.DataFrame({"x": [1]}),
+        }
+        result = infer_groups_from_comparisons(deg_results)
+
+        assert sorted(result["groups"]) == ["CTRL_IL13_ALL", "PS139_1_IL13_ALL"]
+        assert len(result["comparisons"]) == 1
+
+    def test_mixed_vs_formats(self) -> None:
+        """Handle both _vs_ and vs formats in the same dataset."""
+        deg_results = {
+            "A_vs_B": pd.DataFrame({"x": [1]}),
+            "CvsD": pd.DataFrame({"x": [2]}),
+        }
+        result = infer_groups_from_comparisons(deg_results)
+
+        assert sorted(result["groups"]) == ["A", "B", "C", "D"]
+
 
 # -----------------------------------------------------------------------
 # 7. ingest_all (end-to-end)
@@ -460,16 +480,23 @@ class TestRawNovogeneDelivery:
         structure = discover_novogene_structure(tmp_novogene_raw_dir)
         deg = parse_deg_results(structure["deg_dir"])
 
-        assert "GroupA_vs_GroupB" in deg
-        assert "GroupA_vs_GroupC" in deg
+        assert "GroupAvsGroupB" in deg
+        assert "GroupAvsGroupC" in deg
         # Should NOT have numbered container names as comparisons
         assert "1.deglist" not in deg
         assert "2.cluster" not in deg
 
+    def test_deg_prefers_full_gene_list(self, tmp_novogene_raw_dir: Path) -> None:
+        """When *_deg.xls and *_deg_all.xls both exist, prefer the full list."""
+        structure = discover_novogene_structure(tmp_novogene_raw_dir)
+        deg = parse_deg_results(structure["deg_dir"])
+        # The full gene list has 100 genes; _deg_all.xls has only 50
+        assert len(deg["GroupAvsGroupB"]) == 100
+
     def test_deg_dataframe_shape_from_raw(self, tmp_novogene_raw_dir: Path) -> None:
         structure = discover_novogene_structure(tmp_novogene_raw_dir)
         deg = parse_deg_results(structure["deg_dir"])
-        df = deg["GroupA_vs_GroupB"]
+        df = deg["GroupAvsGroupB"]
 
         assert len(df) == 100
         expected_cols = {"gene_id", "gene_name", "log2fc", "pvalue", "padj"}
@@ -479,21 +506,21 @@ class TestRawNovogeneDelivery:
         structure = discover_novogene_structure(tmp_novogene_raw_dir)
         enrichment = parse_enrichment_results(structure["enrichment_dir"])
 
-        assert "GroupA_vs_GroupB" in enrichment
-        assert "GO" in enrichment["GroupA_vs_GroupB"]
-        assert "KEGG" in enrichment["GroupA_vs_GroupB"]
+        assert "GroupAvsGroupB" in enrichment
+        assert "GO" in enrichment["GroupAvsGroupB"]
+        assert "KEGG" in enrichment["GroupAvsGroupB"]
 
     def test_enrichment_go_shape(self, tmp_novogene_raw_dir: Path) -> None:
         structure = discover_novogene_structure(tmp_novogene_raw_dir)
         enrichment = parse_enrichment_results(structure["enrichment_dir"])
-        go_df = enrichment["GroupA_vs_GroupB"]["GO"]
+        go_df = enrichment["GroupAvsGroupB"]["GO"]
 
         assert len(go_df) == 10
 
     def test_enrichment_kegg_shape(self, tmp_novogene_raw_dir: Path) -> None:
         structure = discover_novogene_structure(tmp_novogene_raw_dir)
         enrichment = parse_enrichment_results(structure["enrichment_dir"])
-        kegg_df = enrichment["GroupA_vs_GroupB"]["KEGG"]
+        kegg_df = enrichment["GroupAvsGroupB"]["KEGG"]
 
         assert len(kegg_df) == 5
 
@@ -501,9 +528,9 @@ class TestRawNovogeneDelivery:
         result = ingest_all(tmp_novogene_raw_dir)
 
         assert len(result["deg"]) == 2
-        assert "GroupA_vs_GroupB" in result["deg"]
-        assert "GroupA_vs_GroupC" in result["deg"]
-        assert "GroupA_vs_GroupB" in result["enrichment"]
+        assert "GroupAvsGroupB" in result["deg"]
+        assert "GroupAvsGroupC" in result["deg"]
+        assert "GroupAvsGroupB" in result["enrichment"]
         assert result["sample_info"] is not None
 
     def test_infer_groups_from_raw_delivery(self, tmp_novogene_raw_dir: Path) -> None:

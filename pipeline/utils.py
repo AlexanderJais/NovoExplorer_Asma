@@ -226,6 +226,9 @@ def standardize_deg_columns(df: pd.DataFrame) -> pd.DataFrame:
         "regulation": [
             "regulation", "Regulation", "Direction", "regulate",
         ],
+        "tf_family": [
+            "tf_family", "TF_family", "gene_tf_family",
+        ],
     }
 
     for standard_name, candidates in column_candidates.items():

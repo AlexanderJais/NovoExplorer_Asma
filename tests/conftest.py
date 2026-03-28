@@ -276,7 +276,7 @@ def tmp_novogene_raw_dir(tmp_path: Path) -> Path:
     # Put a non-DEG file in 2.cluster to ensure it doesn't confuse parsing
     (cluster_dir / "cluster_readme.txt").write_text("clustering info")
 
-    for comparison in ["GroupA_vs_GroupB", "GroupA_vs_GroupC"]:
+    for comparison in ["GroupAvsGroupB", "GroupAvsGroupC"]:
         comp_dir = deglist_dir / comparison
         comp_dir.mkdir()
 
@@ -295,11 +295,15 @@ def tmp_novogene_raw_dir(tmp_path: Path) -> Path:
             "baseMean": np.round(_RNG.random(n_degs) * 1000, 2),
             "regulation": regulation,
         })
+        # Create full gene list + filtered variants (matches real Novogene output)
         _write_tsv(comp_dir / f"{comparison}_deg.xls", deg_df)
+        _write_tsv(comp_dir / f"{comparison}_deg_all.xls", deg_df.head(50))
+        _write_tsv(comp_dir / f"{comparison}_deg_up.xls", deg_df[deg_df["regulation"] == "Up"].head(25))
+        _write_tsv(comp_dir / f"{comparison}_deg_down.xls", deg_df[deg_df["regulation"] == "Down"].head(25))
 
     # diff_stat.xls at deglist level
     stat_df = pd.DataFrame({
-        "compare": ["GroupA_vs_GroupB", "GroupA_vs_GroupC"],
+        "compare": ["GroupAvsGroupB", "GroupAvsGroupC"],
         "all": [50, 40],
         "up": [30, 25],
         "down": [20, 15],
@@ -316,7 +320,7 @@ def tmp_novogene_raw_dir(tmp_path: Path) -> Path:
     # KEGG — database-first: Enrichment/KEGG/{comparison}/all/*_KEGGenrich.xls
     kegg_root = enrich_dir / "KEGG"
     kegg_root.mkdir()
-    kegg_comp = kegg_root / "GroupA_vs_GroupB" / "all"
+    kegg_comp = kegg_root / "GroupAvsGroupB" / "all"
     kegg_comp.mkdir(parents=True)
 
     kegg_terms = [
@@ -337,12 +341,12 @@ def tmp_novogene_raw_dir(tmp_path: Path) -> Path:
         "geneName": ["/".join(_RNG.choice(_GENE_NAMES, size=4, replace=False)) for _ in kegg_terms],
         "Count": _RNG.integers(3, 20, size=len(kegg_terms)),
     })
-    _write_tsv(kegg_comp / "GroupA_vs_GroupB_KEGGenrich.xls", kegg_df)
+    _write_tsv(kegg_comp / "GroupAvsGroupB_KEGGenrich.xls", kegg_df)
 
     # GO — database-first: Enrichment/GO/{comparison}/all/*_GOenrich.xls
     go_root = enrich_dir / "GO"
     go_root.mkdir()
-    go_comp = go_root / "GroupA_vs_GroupB" / "all"
+    go_comp = go_root / "GroupAvsGroupB" / "all"
     go_comp.mkdir(parents=True)
 
     go_terms = [
@@ -366,7 +370,7 @@ def tmp_novogene_raw_dir(tmp_path: Path) -> Path:
         "Count": _RNG.integers(5, 30, size=len(go_terms)),
         "geneID": ["/".join(_RNG.choice(_GENE_NAMES, size=5, replace=False)) for _ in go_terms],
     })
-    _write_tsv(go_comp / "GroupA_vs_GroupB_GOenrich.xls", go_df)
+    _write_tsv(go_comp / "GroupAvsGroupB_GOenrich.xls", go_df)
 
     # ------------------------------------------------------------------
     # 3. sample_info.txt
