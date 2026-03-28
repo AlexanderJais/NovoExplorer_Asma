@@ -209,55 +209,76 @@ if "browse_dir" not in st.session_state:
 # --- Folder browser ---
 st.sidebar.subheader("Select data folder")
 
-# Text input: paste or type a full path
-browse_dir = st.sidebar.text_input(
-    "Paste or type folder path",
-    value=st.session_state["browse_dir"],
-    key="_browse_input",
-    help="Enter the full path to your Novogene data folder and press Enter",
-)
-if browse_dir != st.session_state["browse_dir"]:
-    st.session_state["browse_dir"] = browse_dir
 
-browse_path = Path(browse_dir)
+def _on_path_change():
+    """Callback: user typed/pasted a new path in the text input."""
+    st.session_state["browse_dir"] = st.session_state["_path_input"]
+
+
+def _go_up():
+    """Callback: navigate to parent directory."""
+    st.session_state["browse_dir"] = str(Path(st.session_state["browse_dir"]).parent)
+    st.session_state["_path_input"] = st.session_state["browse_dir"]
+
+
+def _use_folder():
+    """Callback: confirm current browse_dir as the data folder."""
+    st.session_state["data_dir"] = st.session_state["browse_dir"]
+
+
+def _on_subfolder_click(subfolder_name: str):
+    """Callback: navigate into a subfolder."""
+    new_path = str(Path(st.session_state["browse_dir"]) / subfolder_name)
+    st.session_state["browse_dir"] = new_path
+    st.session_state["_path_input"] = new_path
+
+
+# Sync text input default with browse_dir
+if "_path_input" not in st.session_state:
+    st.session_state["_path_input"] = st.session_state["browse_dir"]
+
+st.sidebar.text_input(
+    "Folder path",
+    key="_path_input",
+    on_change=_on_path_change,
+    help="Paste a full path and press Enter",
+)
+
+browse_path = Path(st.session_state["browse_dir"])
 
 if browse_path.is_dir():
-    # Quick-navigate: selectbox with subdirectories
-    subdirs = _list_subdirs(browse_path)
-    if subdirs:
-        labels = []
-        for d in subdirs:
-            child = browse_path / d
-            tag = "  \u2705" if _looks_like_novogene(child) else ""
-            labels.append(f"{d}{tag}")
+    # Show current path (may differ from text input during navigation)
+    if str(browse_path) != st.session_state.get("_path_input", ""):
+        st.sidebar.caption(f"📂 `{browse_path}`")
 
-        chosen = st.sidebar.selectbox(
-            "Subfolders",
-            ["(stay here)"] + labels,
-            index=0,
-            key="_browse_select",
-        )
-        if chosen != "(stay here)":
-            folder_name = chosen.replace("  \u2705", "")
-            st.session_state["browse_dir"] = str(browse_path / folder_name)
-            st.rerun()
-
-    # Navigation buttons
+    # Action buttons
     col_up, col_use = st.sidebar.columns(2)
     with col_up:
         if browse_path.parent != browse_path:
-            if st.button("\u2191 Up", key="browse_up", use_container_width=True):
-                st.session_state["browse_dir"] = str(browse_path.parent)
-                st.rerun()
+            st.button("↑ Up", key="browse_up", on_click=_go_up, use_container_width=True)
     with col_use:
-        if st.button("Use this folder", key="browse_use", type="primary", use_container_width=True):
-            st.session_state["data_dir"] = str(browse_path)
-            st.rerun()
+        st.button(
+            "✓ Use this folder", key="browse_use", type="primary",
+            on_click=_use_folder, use_container_width=True,
+        )
 
     if _looks_like_novogene(browse_path):
         st.sidebar.success("Novogene data detected")
+
+    # List subdirectories as clickable buttons
+    subdirs = _list_subdirs(browse_path)
+    if subdirs:
+        st.sidebar.caption("Subfolders:")
+        for d in subdirs:
+            child = browse_path / d
+            label = f"📊 {d}" if _looks_like_novogene(child) else f"📁 {d}"
+            st.sidebar.button(
+                label, key=f"_nav_{d}",
+                on_click=_on_subfolder_click, args=(d,),
+                use_container_width=True,
+            )
 else:
-    if browse_dir:
+    if st.session_state["browse_dir"]:
         st.sidebar.warning("Path does not exist.")
 
 st.sidebar.divider()
