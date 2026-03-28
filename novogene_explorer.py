@@ -311,7 +311,7 @@ st.sidebar.metric("Comparisons", len(deg))
 st.sidebar.metric("Genes tracked", f"{len(gene_names):,}")
 if enrichment:
     st.sidebar.metric("Enrichment comparisons", len(enrichment))
-if sample_info is not None:
+if sample_info is not None and "group" in sample_info.columns:
     n_groups = sample_info["group"].nunique()
     st.sidebar.metric("Sample groups", n_groups)
 
@@ -1180,11 +1180,14 @@ with tab_degsummary:
                 for comp_key in padj_cols.keys() & fc_cols.keys():
                     pc, fc = padj_cols[comp_key], fc_cols[comp_key]
                     sig_per_comp[pc] = (wide[pc] < summary_padj) & (wide[fc].abs() >= summary_fc)
-                if show_mode == "Significant in at least 1 comparison":
+                if sig_per_comp.empty:
+                    wide = wide.iloc[0:0]  # no matched pairs, show nothing
+                elif show_mode == "Significant in at least 1 comparison":
                     mask = sig_per_comp.any(axis=1)
+                    wide = wide[mask]
                 else:
                     mask = sig_per_comp.all(axis=1)
-                wide = wide[mask]
+                    wide = wide[mask]
 
             # Reorder columns: alternate FC and padj per comparison
             ordered_cols = []
@@ -1254,9 +1257,13 @@ with tab_pathway:
                 if pw_sig.empty:
                     st.info("No significant terms at this threshold.")
                 else:
-                    term_options = pw_sig[term_col].tolist()
+                    term_options = pw_sig[term_col].dropna().unique().tolist()
                     selected_term = st.selectbox("Select pathway / GO term", term_options, key="pw_term")
-                    term_row = pw_sig[pw_sig[term_col] == selected_term].iloc[0]
+                    term_matches = pw_sig[pw_sig[term_col] == selected_term]
+                    if term_matches.empty:
+                        st.warning("Could not find the selected term in the data.")
+                        st.stop()
+                    term_row = term_matches.iloc[0]
 
                     # Extract gene list
                     genes_col = "genes" if "genes" in pw_sig.columns else None
@@ -1389,7 +1396,12 @@ with tab_export:
                     if candidate not in used_sheet_names:
                         used_sheet_names.add(candidate)
                         return candidate
-                return name  # fallback
+                # Exhausted suffix range; add hash to guarantee uniqueness
+                import hashlib
+                h = hashlib.md5(base.encode()).hexdigest()[:4]
+                fallback = f"{base[:26]}_{h}"
+                used_sheet_names.add(fallback)
+                return fallback
 
             with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
                 for comp_name in sorted(deg.keys()):

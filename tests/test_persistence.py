@@ -197,6 +197,5 @@ class TestGetProjectMetadata:
 
 class TestLoadMissingFile:
     def test_load_results_missing(self, tmp_path):
-        loaded = load_results(tmp_path / "nonexistent.h5")
-        # Should return dict with None sections, not crash
-        assert isinstance(loaded, dict)
+        with pytest.raises(FileNotFoundError):
+            load_results(tmp_path / "nonexistent.h5")
