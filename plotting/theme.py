@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import matplotlib as mpl
+import pandas as pd
 import seaborn as sns
 import plotly.graph_objects as go
 
@@ -191,6 +192,26 @@ def get_nature_colorscale(palette_type: str = "diverging") -> str:
         f"Unknown palette_type {palette_type!r}; "
         "expected 'diverging' or 'sequential'."
     )
+
+
+# ---------------------------------------------------------------------------
+# Gene classification
+# ---------------------------------------------------------------------------
+
+
+def classify_genes(
+    deg_df: pd.DataFrame,
+    padj_threshold: float,
+    log2fc_threshold: float,
+) -> pd.Series:
+    """Return a Series of 'up', 'down', or 'ns' for each gene."""
+    sig = deg_df["padj"] < padj_threshold
+    up = sig & (deg_df["log2fc"] >= log2fc_threshold)
+    down = sig & (deg_df["log2fc"] <= -log2fc_threshold)
+    category = pd.Series("ns", index=deg_df.index)
+    category[up] = "up"
+    category[down] = "down"
+    return category
 
 
 # ---------------------------------------------------------------------------

@@ -14,24 +14,10 @@ from plotting.theme import (
     SEQUENTIAL_CMAP,
     apply_plotly_theme,
     apply_matplotlib_theme,
+    classify_genes,
     get_plotly_template,
     format_axis_label,
 )
-
-
-def _classify_genes(
-    deg_df: pd.DataFrame,
-    padj_threshold: float,
-    log2fc_threshold: float,
-) -> pd.Series:
-    """Return a Series of 'up', 'down', or 'ns' for each gene."""
-    sig = deg_df["padj"] < padj_threshold
-    up = sig & (deg_df["log2fc"] >= log2fc_threshold)
-    down = sig & (deg_df["log2fc"] <= -log2fc_threshold)
-    category = pd.Series("ns", index=deg_df.index)
-    category[up] = "up"
-    category[down] = "down"
-    return category
 
 
 # ---------------------------------------------------------------------------
@@ -68,9 +54,9 @@ def create_ma_plot_plotly(
     if missing:
         raise ValueError(f"DEG DataFrame missing required columns: {missing}")
 
-    df = deg_df.dropna(subset=["log2fc", "padj", "basemean"]).copy()
+    df = deg_df.dropna(subset=["log2fc", "padj", "basemean"])
     df["log2_basemean"] = np.log2(df["basemean"].clip(lower=1e-10))
-    category = _classify_genes(df, padj_threshold, log2fc_threshold)
+    category = classify_genes(df, padj_threshold, log2fc_threshold)
 
     fig = go.Figure()
 
@@ -155,9 +141,9 @@ def create_ma_plot_matplotlib(
     if missing:
         raise ValueError(f"DEG DataFrame missing required columns: {missing}")
 
-    df = deg_df.dropna(subset=["log2fc", "padj", "basemean"]).copy()
+    df = deg_df.dropna(subset=["log2fc", "padj", "basemean"])
     df["log2_basemean"] = np.log2(df["basemean"].clip(lower=1e-10))
-    category = _classify_genes(df, padj_threshold, log2fc_threshold)
+    category = classify_genes(df, padj_threshold, log2fc_threshold)
 
     fig, ax = plt.subplots(figsize=(5, 4))
 

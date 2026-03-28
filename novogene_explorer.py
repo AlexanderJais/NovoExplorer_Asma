@@ -81,8 +81,8 @@ from pipeline.ingest import (
     parse_enrichment_results,
     parse_ppi_results,
     parse_sample_info,
-    _is_container_dir,
-    _iglob_files,
+    is_container_dir,
+    iglob_files,
 )
 from pipeline.utils import (
     read_table_flexible,
@@ -171,9 +171,9 @@ def load_diff_stat(deg_dir: str | None) -> pd.DataFrame | None:
     deg_path = Path(deg_dir)
     # Search in deg_dir itself and one level of numbered containers
     for search_dir in [deg_path] + sorted(
-        d for d in deg_path.iterdir() if d.is_dir() and _is_container_dir(d)
+        d for d in deg_path.iterdir() if d.is_dir() and is_container_dir(d)
     ):
-        candidates = _iglob_files(search_dir, ("diff_stat*",))
+        candidates = iglob_files(search_dir, ("diff_stat*",))
         if candidates:
             try:
                 return read_table_flexible(candidates[0])

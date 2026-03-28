@@ -12,6 +12,7 @@ from scipy.cluster.hierarchy import linkage, fcluster
 from scipy.spatial.distance import squareform
 from sklearn.metrics.pairwise import cosine_similarity
 
+from pipeline.normalize import get_top_variable_genes
 from pipeline.utils import setup_logger
 
 logger = setup_logger(__name__)
@@ -60,13 +61,7 @@ def compute_cosine_similarity_matrix(
         )
         top_n_genes = _MAX_SAFE_GENES
 
-    # Select top N most variable genes by variance across samples
-    variances = expression_df.var(axis=1)
-    n_select = min(top_n_genes, len(variances))
-    top_genes = variances.nlargest(n_select).index
-    subset = expression_df.loc[top_genes]
-
-    logger.info("Selected %d genes by variance.", len(top_genes))
+    subset = get_top_variable_genes(expression_df, n=top_n_genes)
 
     # Compute pairwise cosine similarity (rows = genes)
     sim_values = cosine_similarity(subset.values)

@@ -8,6 +8,7 @@ Euclidean distances) to order genes and samples.
 
 from __future__ import annotations
 
+import logging
 from itertools import cycle
 
 import numpy as np
@@ -16,6 +17,8 @@ import seaborn as sns
 import plotly.graph_objects as go
 from scipy.cluster.hierarchy import linkage, leaves_list
 from scipy.spatial.distance import pdist
+
+_logger = logging.getLogger(__name__)
 
 from plotting.theme import (
     WONG_PALETTE,
@@ -46,13 +49,11 @@ def _zscore_rows(df: pd.DataFrame) -> pd.DataFrame:
 
     Genes with zero variance across samples are scaled to 0 (not NaN).
     """
-    import logging as _logging
-
     means = df.mean(axis=1)
     stds = df.std(axis=1)
     n_zero_var = int((stds == 0).sum())
     if n_zero_var > 0:
-        _logging.getLogger(__name__).warning(
+        _logger.warning(
             "%d gene(s) have zero variance across samples and will appear "
             "as zero in the z-scored heatmap.",
             n_zero_var,

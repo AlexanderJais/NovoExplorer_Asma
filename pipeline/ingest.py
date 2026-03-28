@@ -62,7 +62,7 @@ def _iglob_dirs(base: Path, patterns: tuple[str, ...]) -> List[Path]:
     return found
 
 
-def _iglob_files(base: Path, patterns: tuple[str, ...]) -> List[Path]:
+def iglob_files(base: Path, patterns: tuple[str, ...]) -> List[Path]:
     """Return files under *base* whose names match any pattern (case-insensitive).
 
     Searches only the immediate directory (non-recursive).
@@ -87,7 +87,7 @@ def _iglob_files(base: Path, patterns: tuple[str, ...]) -> List[Path]:
 
 def _find_files_prefer_all(comp_dir: Path, file_patterns: tuple[str, ...]) -> List[Path]:
     """Find files in *comp_dir*, falling back to subdirectories (prefer ``all/``)."""
-    files = _iglob_files(comp_dir, file_patterns)
+    files = iglob_files(comp_dir, file_patterns)
     if files:
         return files
     reg_dirs = sorted(
@@ -95,7 +95,7 @@ def _find_files_prefer_all(comp_dir: Path, file_patterns: tuple[str, ...]) -> Li
         key=lambda d: (0 if d.name.lower() == "all" else 1, d.name.lower()),
     )
     for reg_dir in reg_dirs:
-        files = _iglob_files(reg_dir, file_patterns)
+        files = iglob_files(reg_dir, file_patterns)
         if files:
             return files
     return []
@@ -105,7 +105,7 @@ def _find_files_prefer_all(comp_dir: Path, file_patterns: tuple[str, ...]) -> Li
 _NUMBERED_DIR_RE = re.compile(r"^\d+\.")
 
 
-def _is_container_dir(subdir: Path) -> bool:
+def is_container_dir(subdir: Path) -> bool:
     """Check if *subdir* is an intermediate container (not an actual comparison).
 
     Container directories have a numbered prefix (e.g. ``1.deglist``,
@@ -240,7 +240,7 @@ def parse_expression_matrices(quant_dir: str | Path | None) -> Dict[str, Optiona
 
     def _find_and_parse(patterns: tuple[str, ...], label: str) -> Optional[pd.DataFrame]:
         for sd in search_dirs:
-            matches = _iglob_files(sd, patterns)
+            matches = iglob_files(sd, patterns)
             if matches:
                 fpath = matches[0]
                 logger.info("  Parsing %s matrix: %s", label, fpath)
@@ -318,7 +318,7 @@ def parse_deg_results(deg_dir: str | Path | None) -> Dict[str, pd.DataFrame]:
     for subdir in sorted(deg_dir.iterdir()):
         if not subdir.is_dir():
             continue
-        if _is_container_dir(subdir):
+        if is_container_dir(subdir):
             # Descend into numbered containers like 1.deglist/
             logger.info("  Entering container directory: %s", subdir.name)
             for inner in sorted(subdir.iterdir()):
@@ -332,12 +332,12 @@ def parse_deg_results(deg_dir: str | Path | None) -> Dict[str, pd.DataFrame]:
         logger.info("  Processing DEG comparison: %s", comparison)
 
         # Find the DEG table in this comparison folder
-        deg_files = _iglob_files(comp_dir, _DEG_FILE_PATTERNS)
+        deg_files = iglob_files(comp_dir, _DEG_FILE_PATTERNS)
         if not deg_files:
             # Also search one level deeper (some deliveries nest further)
             for nested in sorted(comp_dir.iterdir()):
                 if nested.is_dir():
-                    deg_files = _iglob_files(nested, _DEG_FILE_PATTERNS)
+                    deg_files = iglob_files(nested, _DEG_FILE_PATTERNS)
                     if deg_files:
                         break
 
@@ -387,10 +387,10 @@ def _enrich_deg_with_all_compare(
     all_compare_path = None
     search_dirs = [deg_dir]
     for child in sorted(deg_dir.iterdir()):
-        if child.is_dir() and _is_container_dir(child):
+        if child.is_dir() and is_container_dir(child):
             search_dirs.append(child)
     for sdir in search_dirs:
-        candidates = _iglob_files(sdir, ("all_compare*",))
+        candidates = iglob_files(sdir, ("all_compare*",))
         if candidates:
             all_compare_path = candidates[0]
             break
@@ -516,7 +516,7 @@ def _parse_enrichment_comparison_first(
                 continue
 
             db_dir = db_dirs[0]
-            enrich_files = _iglob_files(db_dir, _ENRICH_FILE_PATTERNS)
+            enrich_files = iglob_files(db_dir, _ENRICH_FILE_PATTERNS)
             if not enrich_files:
                 logger.warning("    No enrichment files in %s", db_dir)
                 continue

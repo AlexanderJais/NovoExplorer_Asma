@@ -12,6 +12,7 @@ from scipy.spatial.distance import cdist
 from sklearn.decomposition import PCA
 import umap
 
+from pipeline.normalize import compute_log2_transform, get_top_variable_genes
 from pipeline.utils import setup_logger
 
 logger = setup_logger(__name__)
@@ -165,7 +166,7 @@ def compute_sample_correlation(
     pd.DataFrame
         Symmetric correlation matrix (samples x samples).
     """
-    log_counts = np.log2(counts_df + 1)
+    log_counts = compute_log2_transform(counts_df)
     corr = log_counts.corr(method=method)
     logger.info(
         "Computed %s sample correlation matrix (%d x %d).",
@@ -206,16 +207,8 @@ def compute_pca(
         ``'loadings'`` : pd.DataFrame
             Genes x components loading matrix.
     """
-    # Select top variable genes
-    gene_var = counts_df.var(axis=1)
-    n_select = min(n_top_genes, len(gene_var))
-    top_genes = gene_var.nlargest(n_select).index
-    subset = counts_df.loc[top_genes]
-
-    # log2 transform
-    log_data = np.log2(subset + 1)
-
-    # Transpose so rows are samples, columns are genes
+    subset = get_top_variable_genes(counts_df, n=n_top_genes)
+    log_data = compute_log2_transform(subset)
     X = log_data.T
 
     # Cap components to min(n_samples, n_genes)
@@ -279,14 +272,8 @@ def compute_umap(
     pd.DataFrame
         DataFrame with columns ``UMAP1`` and ``UMAP2``, indexed by sample.
     """
-    # Select top variable genes
-    gene_var = counts_df.var(axis=1)
-    n_select = min(n_top_genes, len(gene_var))
-    top_genes = gene_var.nlargest(n_select).index
-    subset = counts_df.loc[top_genes]
-
-    # log2 transform and transpose (samples as rows)
-    log_data = np.log2(subset + 1)
+    subset = get_top_variable_genes(counts_df, n=n_top_genes)
+    log_data = compute_log2_transform(subset)
     X = log_data.T
 
     # UMAP requires at least 3 samples
