@@ -8,9 +8,11 @@ Or run without arguments and enter the path interactively.
 
 from __future__ import annotations
 
+import logging
 import os
 import re
 import sys
+from datetime import datetime
 from pathlib import Path
 
 import numpy as np
@@ -25,6 +27,50 @@ import streamlit as st
 _NOVOVIEW_ROOT = Path(__file__).resolve().parent
 if str(_NOVOVIEW_ROOT) not in sys.path:
     sys.path.insert(0, str(_NOVOVIEW_ROOT))
+
+
+# ---------------------------------------------------------------------------
+# In-app log capture
+# ---------------------------------------------------------------------------
+
+class _SessionLogHandler(logging.Handler):
+    """Logging handler that appends records to ``st.session_state["_log"]``."""
+
+    _FMT = logging.Formatter(
+        fmt="%(asctime)s  %(levelname)-7s  %(name)s: %(message)s",
+        datefmt="%H:%M:%S",
+    )
+
+    def emit(self, record: logging.LogRecord) -> None:
+        try:
+            msg = self._FMT.format(record)
+            # session_state may not be available during cache population on
+            # a fresh Streamlit boot; fall back silently.
+            log_list = st.session_state.setdefault("_log", [])
+            log_list.append(msg)
+        except Exception:
+            pass
+
+
+def _install_log_handler() -> None:
+    """Attach the session-log handler to the ``pipeline`` logger hierarchy."""
+    if "_log_handler_installed" in st.session_state:
+        return
+    handler = _SessionLogHandler()
+    handler.setLevel(logging.DEBUG)
+    # Attach to the root "pipeline" logger so every sub-module is captured
+    for logger_name in ("pipeline.ingest", "pipeline.utils"):
+        lg = logging.getLogger(logger_name)
+        lg.addHandler(handler)
+    st.session_state["_log_handler_installed"] = True
+
+
+_install_log_handler()
+
+# Ensure a log list always exists
+if "_log" not in st.session_state:
+    st.session_state["_log"] = []
+
 
 from pipeline.ingest import (
     discover_novogene_structure,
@@ -162,6 +208,22 @@ if enrichment:
 if sample_info is not None:
     n_groups = sample_info["group"].nunique()
     st.sidebar.metric("Sample groups", n_groups)
+
+# ---------------------------------------------------------------------------
+# Sidebar: log panel
+# ---------------------------------------------------------------------------
+
+st.sidebar.divider()
+with st.sidebar.expander("Log", expanded=False):
+    log_lines = st.session_state.get("_log", [])
+    if log_lines:
+        st.code("\n".join(log_lines), language="log")
+        if st.button("Clear log", key="clear_log"):
+            st.session_state["_log"] = []
+            st.rerun()
+    else:
+        st.caption("No log messages yet.")
+
 
 # ---------------------------------------------------------------------------
 # Main tabs
