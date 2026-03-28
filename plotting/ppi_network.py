@@ -2,11 +2,25 @@
 
 from __future__ import annotations
 
-from typing import Dict, Optional
+from typing import TYPE_CHECKING, Dict, Optional
 
-import networkx as nx
 import pandas as pd
 import plotly.graph_objects as go
+
+if TYPE_CHECKING:
+    import networkx as nx
+
+
+def _nx():
+    """Lazy-import networkx so the app doesn't crash if it's not installed."""
+    try:
+        import networkx as _nx_mod
+        return _nx_mod
+    except ImportError:
+        raise ImportError(
+            "networkx is required for PPI network visualisation. "
+            "Install it with:  pip install networkx"
+        )
 
 
 def _build_graph(
@@ -14,8 +28,9 @@ def _build_graph(
     src_col: str,
     tgt_col: str,
     score_col: str,
-) -> nx.Graph:
+) -> "nx.Graph":
     """Build a NetworkX graph from a PPI DataFrame."""
+    nx = _nx()
     G = nx.Graph()
     has_score = score_col in ppi_df.columns
     for _, row in ppi_df.iterrows():
@@ -26,8 +41,9 @@ def _build_graph(
     return G
 
 
-def _compute_layout(G: nx.Graph, layout: str) -> dict:
+def _compute_layout(G: "nx.Graph", layout: str) -> dict:
     """Compute node positions using the requested layout algorithm."""
+    nx = _nx()
     if layout == "kamada_kawai" and len(G) <= 500:
         return nx.kamada_kawai_layout(G)
     if layout == "circular":
@@ -218,6 +234,7 @@ def build_ego_network(
         return _empty_figure(f"Gene '{gene}' not found in the network")
 
     # Extract ego graph (subgraph within `radius` hops)
+    nx = _nx()
     ego = nx.ego_graph(G_full, node_match, radius=radius)
 
     if len(ego) == 0:

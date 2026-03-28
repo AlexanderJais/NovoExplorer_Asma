@@ -89,7 +89,11 @@ from pipeline.utils import (
     standardize_deg_columns,
     standardize_enrichment_columns,
 )
-from plotting.ppi_network import build_ppi_network, build_ego_network
+try:
+    from plotting.ppi_network import build_ppi_network, build_ego_network
+    _HAS_NETWORKX = True
+except ImportError:
+    _HAS_NETWORKX = False
 
 # ---------------------------------------------------------------------------
 # Streamlit page config
@@ -1482,118 +1486,124 @@ with tab_ppi:
             fc_map = _build_fc_map(deg.get(ppi_comp, pd.DataFrame()))
 
             # ---- Network visualization (primary view) ----
-            st.subheader("Interaction Network")
-
-            net_col1, net_col2 = st.columns([1, 1])
-            with net_col1:
-                net_layout = st.selectbox(
-                    "Layout algorithm",
-                    ["spring", "kamada_kawai", "circular"],
-                    index=0,
-                    key="ppi_layout",
-                    help="Spring: force-directed (good general purpose). "
-                         "Kamada-Kawai: optimised distances (≤500 nodes). "
-                         "Circular: nodes arranged in a circle.",
+            if not _HAS_NETWORKX:
+                st.warning(
+                    "Install **networkx** to enable interactive network graphs:  "
+                    "`pip install networkx`"
                 )
-            with net_col2:
-                max_edges_net = st.slider(
-                    "Max interactions to plot",
-                    50, 2000, min(500, len(ppi_view)),
-                    key="ppi_max_edges",
-                    help="Limit edges for performance. Highest-scoring edges are kept.",
-                )
-
-            # Take top-scoring edges for performance
-            if len(ppi_view) > max_edges_net and "score" in ppi_view.columns:
-                ppi_net = ppi_view.nlargest(max_edges_net, "score")
             else:
-                ppi_net = ppi_view.head(max_edges_net)
+                st.subheader("Interaction Network")
 
-            fig_network = build_ppi_network(
-                ppi_net,
-                src_col=src_col,
-                tgt_col=tgt_col,
-                score_col="score",
-                fc_map=fc_map if fc_map else None,
-                layout=net_layout,
-                up_color=UP_COLOR,
-                down_color=DOWN_COLOR,
-                ns_color=NS_COLOR,
-            )
-            st.plotly_chart(fig_network, use_container_width=True)
+                net_col1, net_col2 = st.columns([1, 1])
+                with net_col1:
+                    net_layout = st.selectbox(
+                        "Layout algorithm",
+                        ["spring", "kamada_kawai", "circular"],
+                        index=0,
+                        key="ppi_layout",
+                        help="Spring: force-directed (good general purpose). "
+                             "Kamada-Kawai: optimised distances (≤500 nodes). "
+                             "Circular: nodes arranged in a circle.",
+                    )
+                with net_col2:
+                    max_edges_net = st.slider(
+                        "Max interactions to plot",
+                        50, 2000, min(500, len(ppi_view)),
+                        key="ppi_max_edges",
+                        help="Limit edges for performance. Highest-scoring edges are kept.",
+                    )
 
-            if fc_map:
-                legend_cols = st.columns(4)
-                legend_cols[0].markdown(
-                    f'<span style="color:{UP_COLOR}">&#11044;</span> Upregulated',
-                    unsafe_allow_html=True,
-                )
-                legend_cols[1].markdown(
-                    f'<span style="color:{DOWN_COLOR}">&#11044;</span> Downregulated',
-                    unsafe_allow_html=True,
-                )
-                legend_cols[2].markdown(
-                    f'<span style="color:{NS_COLOR}">&#11044;</span> Not significant / N/A',
-                    unsafe_allow_html=True,
-                )
-                legend_cols[3].markdown("Node size = number of connections")
+                # Take top-scoring edges for performance
+                if len(ppi_view) > max_edges_net and "score" in ppi_view.columns:
+                    ppi_net = ppi_view.nlargest(max_edges_net, "score")
+                else:
+                    ppi_net = ppi_view.head(max_edges_net)
 
-            # ---- Gene neighborhood explorer ----
-            st.subheader("Gene Neighborhood Explorer")
-            st.caption("Search for a gene to see its local interaction network.")
-            ego_col1, ego_col2 = st.columns([2, 1])
-            with ego_col1:
-                ego_gene = st.selectbox(
-                    "Select a gene",
-                    options=[""] + all_ppi_genes,
-                    index=0,
-                    key="ppi_ego_gene",
-                    help="Pick a gene to display its neighborhood subnetwork.",
-                )
-            with ego_col2:
-                ego_radius = st.radio(
-                    "Neighborhood depth",
-                    [1, 2],
-                    index=0,
-                    key="ppi_ego_radius",
-                    help="1 = direct interactors only. 2 = include interactors of interactors.",
-                    horizontal=True,
-                )
-
-            if ego_gene:
-                fig_ego = build_ego_network(
-                    ppi_filtered,
-                    gene=ego_gene,
+                fig_network = build_ppi_network(
+                    ppi_net,
                     src_col=src_col,
                     tgt_col=tgt_col,
                     score_col="score",
-                    radius=ego_radius,
                     fc_map=fc_map if fc_map else None,
-                    layout="spring",
+                    layout=net_layout,
                     up_color=UP_COLOR,
                     down_color=DOWN_COLOR,
                     ns_color=NS_COLOR,
                 )
-                st.plotly_chart(fig_ego, use_container_width=True)
+                st.plotly_chart(fig_network, use_container_width=True)
+
                 if fc_map:
-                    ego_legend = st.columns(5)
-                    ego_legend[0].markdown(
-                        '<span style="color:#FFD700">&#11044;</span> Query gene',
-                        unsafe_allow_html=True,
-                    )
-                    ego_legend[1].markdown(
+                    legend_cols = st.columns(4)
+                    legend_cols[0].markdown(
                         f'<span style="color:{UP_COLOR}">&#11044;</span> Upregulated',
                         unsafe_allow_html=True,
                     )
-                    ego_legend[2].markdown(
+                    legend_cols[1].markdown(
                         f'<span style="color:{DOWN_COLOR}">&#11044;</span> Downregulated',
                         unsafe_allow_html=True,
                     )
-                    ego_legend[3].markdown(
-                        f'<span style="color:{NS_COLOR}">&#11044;</span> N/A',
+                    legend_cols[2].markdown(
+                        f'<span style="color:{NS_COLOR}">&#11044;</span> Not significant / N/A',
                         unsafe_allow_html=True,
                     )
-                    ego_legend[4].markdown("Node size = connections")
+                    legend_cols[3].markdown("Node size = number of connections")
+
+                # ---- Gene neighborhood explorer ----
+                st.subheader("Gene Neighborhood Explorer")
+                st.caption("Search for a gene to see its local interaction network.")
+                ego_col1, ego_col2 = st.columns([2, 1])
+                with ego_col1:
+                    ego_gene = st.selectbox(
+                        "Select a gene",
+                        options=[""] + all_ppi_genes,
+                        index=0,
+                        key="ppi_ego_gene",
+                        help="Pick a gene to display its neighborhood subnetwork.",
+                    )
+                with ego_col2:
+                    ego_radius = st.radio(
+                        "Neighborhood depth",
+                        [1, 2],
+                        index=0,
+                        key="ppi_ego_radius",
+                        help="1 = direct interactors only. 2 = include interactors of interactors.",
+                        horizontal=True,
+                    )
+
+                if ego_gene:
+                    fig_ego = build_ego_network(
+                        ppi_filtered,
+                        gene=ego_gene,
+                        src_col=src_col,
+                        tgt_col=tgt_col,
+                        score_col="score",
+                        radius=ego_radius,
+                        fc_map=fc_map if fc_map else None,
+                        layout="spring",
+                        up_color=UP_COLOR,
+                        down_color=DOWN_COLOR,
+                        ns_color=NS_COLOR,
+                    )
+                    st.plotly_chart(fig_ego, use_container_width=True)
+                    if fc_map:
+                        ego_legend = st.columns(5)
+                        ego_legend[0].markdown(
+                            '<span style="color:#FFD700">&#11044;</span> Query gene',
+                            unsafe_allow_html=True,
+                        )
+                        ego_legend[1].markdown(
+                            f'<span style="color:{UP_COLOR}">&#11044;</span> Upregulated',
+                            unsafe_allow_html=True,
+                        )
+                        ego_legend[2].markdown(
+                            f'<span style="color:{DOWN_COLOR}">&#11044;</span> Downregulated',
+                            unsafe_allow_html=True,
+                        )
+                        ego_legend[3].markdown(
+                            f'<span style="color:{NS_COLOR}">&#11044;</span> N/A',
+                            unsafe_allow_html=True,
+                        )
+                        ego_legend[4].markdown("Node size = connections")
 
             # ---- Hub gene analysis (top connected genes) ----
             st.subheader("Hub Genes (most connected)")
