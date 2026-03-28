@@ -474,7 +474,7 @@ def main() -> None:
 
             if not upset_df.empty:
                 fig_upset = _create_upset_plot(upset_df)
-                st.plotly_chart(fig_upset, use_container_width=True, key="upset_plot")
+                st.plotly_chart(fig_upset, width="stretch", key="upset_plot")
 
                 # Intersection selector
                 st.markdown("#### Genes in Selected Intersection")
@@ -495,7 +495,7 @@ def main() -> None:
                     st.write(f"**{len(gene_list)} genes** in: {selected_intersection}")
 
                     gene_df = pd.DataFrame({"gene": gene_list})
-                    st.dataframe(gene_df, use_container_width=True, hide_index=True, height=300)
+                    st.dataframe(gene_df, width="stretch", hide_index=True, height=300)
                     download_csv_button(gene_df, f"intersection_genes_{selected_intersection}.csv")
             else:
                 st.info("No exclusive intersections found at the current thresholds.")
@@ -547,7 +547,7 @@ def main() -> None:
                     st.info("No shared genes between the two comparisons.")
                 else:
                     fig_scatter = _create_fc_scatter(scatter_df, comp_a, comp_b)
-                    st.plotly_chart(fig_scatter, use_container_width=True, key="fc_scatter")
+                    st.plotly_chart(fig_scatter, width="stretch", key="fc_scatter")
 
                     # Category counts
                     counts = scatter_df["category"].value_counts()

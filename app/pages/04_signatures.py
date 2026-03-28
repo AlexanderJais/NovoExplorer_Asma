@@ -440,7 +440,7 @@ def main() -> None:
                 title=f"Enrichment: {comp}",
                 max_terms=20,
             )
-            st.plotly_chart(fig, use_container_width=True, key=f"dotplot_{comp}")
+            st.plotly_chart(fig, width="stretch", key=f"dotplot_{comp}")
 
             # Download buttons for the figure
             download_figure_buttons(fig, f"enrichment_dotplot_{comp}")
@@ -464,7 +464,7 @@ def main() -> None:
 
             st.dataframe(
                 table_df,
-                use_container_width=True,
+                width="stretch",
                 hide_index=True,
                 height=table_height(len(table_df)),
             )
@@ -523,7 +523,7 @@ def main() -> None:
             height=max(400, len(overlap_matrix) * 60),
         )
         apply_plotly_theme(fig_overlap)
-        st.plotly_chart(fig_overlap, use_container_width=True, key="jaccard_heatmap")
+        st.plotly_chart(fig_overlap, width="stretch", key="jaccard_heatmap")
         download_figure_buttons(fig_overlap, "signature_overlap_heatmap")
     else:
         render_empty_state("Not enough data for overlap heatmap", "At least two comparisons with enrichment results are needed.", "chart")
@@ -556,7 +556,7 @@ def main() -> None:
                 )
 
             if core_df is not None and not core_df.empty:
-                st.dataframe(core_df, use_container_width=True, hide_index=True)
+                st.dataframe(core_df, width="stretch", hide_index=True)
                 download_csv_button(core_df, "core_signatures.csv", "Download core signatures")
             else:
                 render_empty_state("No core signatures found", "Try lowering the minimum comparisons or relaxing the p-value threshold.", "search")
@@ -577,7 +577,7 @@ def main() -> None:
                 )
 
             if unique_df is not None and not unique_df.empty:
-                st.dataframe(unique_df, use_container_width=True, hide_index=True)
+                st.dataframe(unique_df, width="stretch", hide_index=True)
                 download_csv_button(unique_df, "unique_signatures.csv", "Download unique signatures")
             else:
                 render_empty_state("No unique signatures found", "All significant pathways are shared across comparisons.", "search")

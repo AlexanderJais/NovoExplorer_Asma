@@ -231,7 +231,7 @@ def main() -> None:
                         sample_groups=sample_groups,
                         title="PCA",
                     )
-                    st.plotly_chart(fig, use_container_width=True)
+                    st.plotly_chart(fig, width="stretch")
                     download_figure_buttons(fig, "pca_scatter")
 
                 elif method == "UMAP" and umap_coords is not None:
@@ -240,7 +240,7 @@ def main() -> None:
                         sample_groups=sample_groups,
                         title="UMAP",
                     )
-                    st.plotly_chart(fig, use_container_width=True)
+                    st.plotly_chart(fig, width="stretch")
                     download_figure_buttons(fig, "umap_scatter")
             else:
                 render_empty_state("No embeddings available", "Run the pipeline with PCA/UMAP enabled to generate embeddings.", "chart")
@@ -257,7 +257,7 @@ def main() -> None:
 
             if corr_df is not None:
                 fig_corr = _create_correlation_heatmap(corr_df)
-                st.plotly_chart(fig_corr, use_container_width=True)
+                st.plotly_chart(fig_corr, width="stretch")
                 download_figure_buttons(fig_corr, "sample_correlation")
             else:
                 render_empty_state("No correlation data available", "Correlation is computed from the expression matrix.", "chart")
@@ -278,7 +278,7 @@ def main() -> None:
                 n_top_genes=50,
                 title="Top 50 Variable Genes (z-score)",
             )
-            st.plotly_chart(fig_hm, use_container_width=True)
+            st.plotly_chart(fig_hm, width="stretch")
             download_figure_buttons(fig_hm, "top50_variable_genes")
         else:
             render_empty_state("No expression data available", "Check that the pipeline produced an expression matrix.", "gene")
@@ -323,7 +323,7 @@ def main() -> None:
                 summary_df = pd.DataFrame(rows)
                 st.dataframe(
                     summary_df,
-                    use_container_width=True,
+                    width="stretch",
                     hide_index=True,
                     height=table_height(len(summary_df)),
                 )

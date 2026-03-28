@@ -257,11 +257,11 @@ if browse_path.is_dir():
     col_up, col_use = st.sidebar.columns(2)
     with col_up:
         if browse_path.parent != browse_path:
-            st.button("↑ Up", key="browse_up", on_click=_go_up, use_container_width=True)
+            st.button("↑ Up", key="browse_up", on_click=_go_up, width="stretch")
     with col_use:
         st.button(
             "✓ Use this folder", key="browse_use", type="primary",
-            on_click=_use_folder, use_container_width=True,
+            on_click=_use_folder, width="stretch",
         )
 
     if _looks_like_novogene(browse_path):
@@ -277,7 +277,7 @@ if browse_path.is_dir():
             st.sidebar.button(
                 label, key=f"_nav_{d}",
                 on_click=_on_subfolder_click, args=(d,),
-                use_container_width=True,
+                width="stretch",
             )
 else:
     if st.session_state["browse_dir"]:
@@ -333,10 +333,10 @@ with st.sidebar.expander("Log", expanded=False):
                 file_name="novogene_explorer.log",
                 mime="text/plain",
                 key="download_log",
-                use_container_width=True,
+                width="stretch",
             )
         with col_clear:
-            if st.button("Clear log", key="clear_log", use_container_width=True):
+            if st.button("Clear log", key="clear_log", width="stretch"):
                 st.session_state["_log"] = []
                 st.rerun()
     else:
@@ -367,7 +367,7 @@ with tab_overview:
         if "compare" in display_df.columns:
             groups = display_df["compare"].apply(lambda x: pd.Series(_split_comparison(x), index=["Group A", "Group B"]))
             display_df = pd.concat([groups, display_df], axis=1)
-        st.dataframe(display_df, use_container_width=True, hide_index=True)
+        st.dataframe(display_df, width="stretch", hide_index=True)
 
         # Bar chart of DEG counts
         if "compare" in diff_stat.columns and "up" in diff_stat.columns:
@@ -385,7 +385,7 @@ with tab_overview:
                 xaxis_title="Comparison", yaxis_title="Number of DEGs",
                 xaxis_tickangle=-45, height=450,
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
     else:
         st.info("No diff_stat.xls found. Showing comparisons from folder structure.")
 
@@ -405,7 +405,7 @@ with tab_overview:
                 "Up": n_up,
                 "Down": n_down,
             })
-        st.dataframe(pd.DataFrame(comp_summary), use_container_width=True, hide_index=True)
+        st.dataframe(pd.DataFrame(comp_summary), width="stretch", hide_index=True)
 
 
 # =========================================================================
@@ -503,12 +503,12 @@ with tab_gene:
                     height=max(400, 50 * len(gene_df)),
                     showlegend=False,
                 )
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, width="stretch")
 
                 # Data table
                 st.dataframe(
                     gene_df[["Comparison", "Group A", "Group B", "log2FC", "padj", "pvalue", "basemean", "regulation"]],
-                    use_container_width=True,
+                    width="stretch",
                     hide_index=True,
                     column_config={
                         "log2FC": st.column_config.NumberColumn(format="%.3f"),
@@ -562,9 +562,9 @@ with tab_gene:
                 xaxis_tickangle=-45,
                 height=max(350, 40 * len(matrix_df) + 200),
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
 
-            st.dataframe(matrix_df, use_container_width=True)
+            st.dataframe(matrix_df, width="stretch")
         else:
             st.warning("None of the entered genes were found in the data.")
 
@@ -655,7 +655,7 @@ with tab_comparison:
                 font=dict(size=14),
                 legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, font=dict(size=13)),
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
         else:
             st.warning("DEG table missing required columns (log2fc, padj).")
 
@@ -670,7 +670,7 @@ with tab_comparison:
         if gene_filter and "gene_name" in display.columns:
             display = display[display["gene_name"].str.contains(gene_filter, case=False, na=False)]
 
-        st.dataframe(display, use_container_width=True, hide_index=True, height=500)
+        st.dataframe(display, width="stretch", hide_index=True, height=500)
 
 
 # =========================================================================
@@ -781,7 +781,7 @@ with tab_enrichment:
                     height=max(400, 25 * len(plot_df) + 150),
                     margin=dict(l=300),
                 )
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, width="stretch")
 
                 # Bar plot
                 fig_bar = go.Figure()
@@ -800,7 +800,7 @@ with tab_enrichment:
                     height=max(400, 25 * len(plot_df) + 150),
                     margin=dict(l=300),
                 )
-                st.plotly_chart(fig_bar, use_container_width=True)
+                st.plotly_chart(fig_bar, width="stretch")
 
             # Full table
             st.subheader(f"{selected_db} Enrichment Table")
@@ -812,7 +812,7 @@ with tab_enrichment:
                 for col in text_cols:
                     mask |= display_enrich[col].str.contains(term_filter, case=False, na=False)
                 display_enrich = display_enrich[mask]
-            st.dataframe(display_enrich, use_container_width=True, hide_index=True, height=500)
+            st.dataframe(display_enrich, width="stretch", hide_index=True, height=500)
 
         # Cross-comparison enrichment view
         if len(enrich_comps) > 1:
@@ -844,7 +844,7 @@ with tab_enrichment:
 
                 if cross_rows:
                     cross_df = pd.DataFrame(cross_rows)
-                    st.dataframe(cross_df, use_container_width=True, hide_index=True)
+                    st.dataframe(cross_df, width="stretch", hide_index=True)
 
                     # Heatmap of padj across comparisons
                     if len(cross_df["Term"].unique()) <= 30:
@@ -862,7 +862,7 @@ with tab_enrichment:
                             title=f"Enrichment Significance: '{term_query}'",
                         )
                         fig.update_layout(xaxis_tickangle=-45, height=max(350, 35 * len(pivot)))
-                        st.plotly_chart(fig, use_container_width=True)
+                        st.plotly_chart(fig, width="stretch")
                 else:
                     st.info(f"No enrichment terms matching **{term_query}** found.")
 
@@ -924,7 +924,7 @@ with tab_ma:
                 font=dict(size=14),
                 legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, font=dict(size=13)),
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
 
             col_m1, col_m2, col_m3 = st.columns(3)
             col_m1.metric("Upregulated", f"{up.sum():,}")
@@ -1017,7 +1017,7 @@ with tab_venn:
                     xaxis_tickangle=-45, height=500,
                     font=dict(size=14),
                 )
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, width="stretch")
 
                 # Set size summary
                 st.subheader("Set Sizes")
@@ -1025,7 +1025,7 @@ with tab_venn:
                     {"Comparison": s, "Significant genes": len(g)}
                     for s, g in gene_sets.items()
                 ])
-                st.dataframe(size_df, use_container_width=True, hide_index=True)
+                st.dataframe(size_df, width="stretch", hide_index=True)
 
                 # Intersection detail
                 st.subheader("Intersection Details")
@@ -1036,7 +1036,7 @@ with tab_venn:
                     for g in sorted(genes):
                         detail_rows.append({"Intersection": label + only_in, "Gene": g})
                 detail_df = pd.DataFrame(detail_rows)
-                st.dataframe(detail_df, use_container_width=True, hide_index=True, height=400)
+                st.dataframe(detail_df, width="stretch", hide_index=True, height=400)
         else:
             st.info("Select at least 2 comparisons above.")
 
@@ -1097,7 +1097,7 @@ with tab_ranked:
                 height=500,
                 font=dict(size=14),
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
 
             # Stats
             n_sig = sig_mask.sum()
@@ -1113,11 +1113,11 @@ with tab_ranked:
                 st.subheader(f"Top {n_show} upregulated")
                 top_up = rank_df.dropna(subset=["log2fc", "padj"]).nlargest(n_show, "log2fc")
                 display_cols = [c for c in ["gene_name", "log2fc", "padj", "basemean"] if c in top_up.columns]
-                st.dataframe(top_up[display_cols], use_container_width=True, hide_index=True)
+                st.dataframe(top_up[display_cols], width="stretch", hide_index=True)
             with col_bot:
                 st.subheader(f"Top {n_show} downregulated")
                 top_down = rank_df.dropna(subset=["log2fc", "padj"]).nsmallest(n_show, "log2fc")
-                st.dataframe(top_down[display_cols], use_container_width=True, hide_index=True)
+                st.dataframe(top_down[display_cols], width="stretch", hide_index=True)
 
 
 # =========================================================================
@@ -1150,7 +1150,7 @@ with tab_degsummary:
             df = deg[comp]
             if "gene_name" not in df.columns:
                 continue
-            sub = df.set_index("gene_name")
+            sub = df.drop_duplicates(subset="gene_name").set_index("gene_name")
             if "log2fc" in sub.columns:
                 fc_frames.append(sub[["log2fc"]].rename(columns={"log2fc": f"{comp}|log2FC"}))
             if "padj" in sub.columns:
@@ -1193,7 +1193,7 @@ with tab_degsummary:
             if gene_search:
                 wide = wide[wide.index.str.contains(gene_search, case=False, na=False)]
 
-            st.dataframe(wide, use_container_width=True, height=600)
+            st.dataframe(wide, width="stretch", height=600)
 
             # Download as Excel
             buffer = io.BytesIO()
@@ -1303,7 +1303,7 @@ with tab_pathway:
                                     height=max(400, 20 * len(pw_gene_df) + 200),
                                     font=dict(size=14),
                                 )
-                                st.plotly_chart(fig, use_container_width=True)
+                                st.plotly_chart(fig, width="stretch")
 
                                 # Cross-comparison heatmap for these genes
                                 if len(deg) > 1:
@@ -1338,10 +1338,10 @@ with tab_pathway:
                                             height=max(350, 30 * len(mx) + 200),
                                             font=dict(size=13),
                                         )
-                                        st.plotly_chart(fig_hm, use_container_width=True)
+                                        st.plotly_chart(fig_hm, width="stretch")
 
                                 # Data table
-                                st.dataframe(pw_gene_df, use_container_width=True, hide_index=True)
+                                st.dataframe(pw_gene_df, width="stretch", hide_index=True)
 
 
 # =========================================================================

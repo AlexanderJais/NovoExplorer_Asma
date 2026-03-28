@@ -188,7 +188,7 @@ def _show_data_picker() -> None:
         )
     with col2:
         st.markdown("<div style='height: 1.75rem'></div>", unsafe_allow_html=True)
-        load_clicked = st.button("Load", type="primary", use_container_width=True)
+        load_clicked = st.button("Load", type="primary", width="stretch")
 
     if not load_clicked or not user_path.strip():
         _show_picker_help()
@@ -294,7 +294,7 @@ with st.sidebar:
     st.markdown("---")
 
     # Change data source
-    if st.button("Change data source", use_container_width=True):
+    if st.button("Change data source", width="stretch"):
         for key in ("config", "config_path", "results_path", "_picker_path"):
             st.session_state.pop(key, None)
         st.rerun()

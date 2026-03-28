@@ -220,7 +220,7 @@ def main() -> None:
         highlight_gene=searched_gene,
         title=f"Volcano: {selected_comparison}",
     )
-    st.plotly_chart(fig_volcano, use_container_width=True)
+    st.plotly_chart(fig_volcano, width="stretch")
     download_figure_buttons(fig_volcano, f"volcano_{selected_comparison}")
 
     # ---- Searched gene spotlight ----
@@ -263,7 +263,7 @@ def main() -> None:
         # Expression bar chart
         fig_expr = _create_expression_bar(searched_gene, expression_df, samples_meta)
         if fig_expr is not None:
-            st.plotly_chart(fig_expr, use_container_width=True)
+            st.plotly_chart(fig_expr, width="stretch")
         else:
             st.caption(f"Expression data not available for {searched_gene}.")
 
@@ -277,7 +277,7 @@ def main() -> None:
                 log2fc_threshold=log2fc_thresh,
                 title=f"MA Plot: {selected_comparison}",
             )
-            st.plotly_chart(fig_ma, use_container_width=True)
+            st.plotly_chart(fig_ma, width="stretch")
             download_figure_buttons(fig_ma, f"ma_plot_{selected_comparison}")
         else:
             st.info(
@@ -366,7 +366,7 @@ def main() -> None:
     if not table_df.empty:
         st.dataframe(
             table_df,
-            use_container_width=True,
+            width="stretch",
             hide_index=True,
             height=table_height(len(table_df)),
         )

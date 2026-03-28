@@ -306,7 +306,7 @@ def main() -> None:
         st.subheader("Expression Profile")
         fig_expr = _create_expression_bar(selected_gene, expression_df, samples_meta)
         if fig_expr is not None:
-            st.plotly_chart(fig_expr, use_container_width=True)
+            st.plotly_chart(fig_expr, width="stretch")
         else:
             render_empty_state(f"'{selected_gene}' not found in expression matrix", icon="gene")
 
@@ -333,7 +333,7 @@ def main() -> None:
             # Display the table
             st.dataframe(
                 similar_df,
-                use_container_width=True,
+                width="stretch",
                 hide_index=True,
                 height=table_height(len(similar_df)),
             )
@@ -425,12 +425,12 @@ def _render_basket_panel(
                     title="Basket Genes (z-score)",
                 )
                 apply_plotly_theme(fig)
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, width="stretch")
 
             with st.expander("Basket Expression Table", expanded=False):
                 display_df = expression_df.loc[available].copy()
                 display_df.insert(0, "gene", display_df.index)
-                st.dataframe(display_df, use_container_width=True, hide_index=True)
+                st.dataframe(display_df, width="stretch", hide_index=True)
                 download_csv_button(
                     expression_df.loc[available],
                     filename="basket_expression.csv",
