@@ -482,7 +482,8 @@ def _parse_enrichment_comparison_first(
         "DisGeNET": ("disgenet*", "DisGeNET*", "DISGENET*"),
         "DO": ("do", "DO"),
         "Reactome": ("reactome*", "Reactome*", "REACTOME*"),
-        "PPI": ("ppi*", "PPI*"),
+        # PPI directories contain protein-protein interaction networks
+        # (node1, node2, score), not enrichment tables — skip them.
     }
 
     for subdir in sorted(enrichment_dir.iterdir()):
@@ -562,7 +563,8 @@ def _parse_enrichment_database_first(
         "DisGeNET": ("disgenet*", "DisGeNET*", "DISGENET*"),
         "DO": ("do", "DO"),
         "Reactome": ("reactome*", "Reactome*", "REACTOME*"),
-        "PPI": ("ppi*", "PPI*"),
+        # PPI directories contain protein-protein interaction networks
+        # (node1, node2, score), not enrichment tables — skip them.
     }
 
     for db_name, db_patterns in _DB_DIR_PATTERNS.items():
