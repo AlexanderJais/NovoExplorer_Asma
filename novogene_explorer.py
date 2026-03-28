@@ -1525,12 +1525,12 @@ with tab_ppi:
 
             # ---- Full interaction table ----
             st.subheader("Interaction Table")
-            # Show most useful columns in a readable order
+            # Show most useful columns in a readable order:
+            # gene names first, then ENSG IDs, then score, then rest
             display_cols = []
-            for c in [src_col, tgt_col, "source", "target", "score"]:
+            for c in ["source_name", "target_name", "source", "target", "score"]:
                 if c in ppi_view.columns and c not in display_cols:
                     display_cols.append(c)
-            # Add any remaining columns
             for c in ppi_view.columns:
                 if c not in display_cols:
                     display_cols.append(c)

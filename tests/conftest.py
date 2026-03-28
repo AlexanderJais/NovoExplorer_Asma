@@ -391,7 +391,7 @@ def tmp_novogene_raw_dir(tmp_path: Path) -> Path:
                 "node2_gene": f"ENSG{i+100:011d}",
                 "node2_name": g2,
                 "node2_protein": f"9606.ENSP{i+100:011d}",
-                "score": round(_RNG.uniform(0.4, 0.99), 3),
+                "score": int(_RNG.integers(150, 999)),
             })
     ppi_df = pd.DataFrame(ppi_rows)
     _write_tsv(ppi_comp / "GroupAvsGroupB_ppi.xls", ppi_df)
