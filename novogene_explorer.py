@@ -89,7 +89,7 @@ from pipeline.utils import (
     standardize_deg_columns,
     standardize_enrichment_columns,
 )
-from plotting.ppi_network import build_ppi_network
+from plotting.ppi_network import build_ppi_network, build_ego_network
 
 # ---------------------------------------------------------------------------
 # Streamlit page config
@@ -1537,6 +1537,63 @@ with tab_ppi:
                     unsafe_allow_html=True,
                 )
                 legend_cols[3].markdown("Node size = number of connections")
+
+            # ---- Gene neighborhood explorer ----
+            st.subheader("Gene Neighborhood Explorer")
+            st.caption("Search for a gene to see its local interaction network.")
+            ego_col1, ego_col2 = st.columns([2, 1])
+            with ego_col1:
+                ego_gene = st.selectbox(
+                    "Select a gene",
+                    options=[""] + all_ppi_genes,
+                    index=0,
+                    key="ppi_ego_gene",
+                    help="Pick a gene to display its neighborhood subnetwork.",
+                )
+            with ego_col2:
+                ego_radius = st.radio(
+                    "Neighborhood depth",
+                    [1, 2],
+                    index=0,
+                    key="ppi_ego_radius",
+                    help="1 = direct interactors only. 2 = include interactors of interactors.",
+                    horizontal=True,
+                )
+
+            if ego_gene:
+                fig_ego = build_ego_network(
+                    ppi_filtered,
+                    gene=ego_gene,
+                    src_col=src_col,
+                    tgt_col=tgt_col,
+                    score_col="score",
+                    radius=ego_radius,
+                    fc_map=fc_map if fc_map else None,
+                    layout="spring",
+                    up_color=UP_COLOR,
+                    down_color=DOWN_COLOR,
+                    ns_color=NS_COLOR,
+                )
+                st.plotly_chart(fig_ego, use_container_width=True)
+                if fc_map:
+                    ego_legend = st.columns(5)
+                    ego_legend[0].markdown(
+                        '<span style="color:#FFD700">&#11044;</span> Query gene',
+                        unsafe_allow_html=True,
+                    )
+                    ego_legend[1].markdown(
+                        f'<span style="color:{UP_COLOR}">&#11044;</span> Upregulated',
+                        unsafe_allow_html=True,
+                    )
+                    ego_legend[2].markdown(
+                        f'<span style="color:{DOWN_COLOR}">&#11044;</span> Downregulated',
+                        unsafe_allow_html=True,
+                    )
+                    ego_legend[3].markdown(
+                        f'<span style="color:{NS_COLOR}">&#11044;</span> N/A',
+                        unsafe_allow_html=True,
+                    )
+                    ego_legend[4].markdown("Node size = connections")
 
             # ---- Hub gene analysis (top connected genes) ----
             st.subheader("Hub Genes (most connected)")

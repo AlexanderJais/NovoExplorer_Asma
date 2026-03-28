@@ -147,3 +147,161 @@ def build_ppi_network(
     )
 
     return fig
+
+
+def build_ego_network(
+    ppi_df: pd.DataFrame,
+    gene: str,
+    src_col: str = "source_name",
+    tgt_col: str = "target_name",
+    score_col: str = "score",
+    radius: int = 1,
+    fc_map: Optional[Dict[str, float]] = None,
+    layout: str = "spring",
+    up_color: str = "#D55E00",
+    down_color: str = "#0072B2",
+    ns_color: str = "#BBBBBB",
+    center_color: str = "#FFD700",
+) -> go.Figure:
+    """Build a neighborhood (ego) network centered on a specific gene.
+
+    Parameters
+    ----------
+    gene : The gene to center the network on.
+    radius : How many hops from the center gene to include (1 = direct neighbors,
+             2 = neighbors of neighbors).
+    center_color : Highlight colour for the query gene node.
+    """
+    G_full = nx.Graph()
+    for _, row in ppi_df.iterrows():
+        src = str(row[src_col])
+        tgt = str(row[tgt_col])
+        score = float(row[score_col]) if score_col in row.index else 0.5
+        G_full.add_edge(src, tgt, score=score)
+
+    # Find the gene node (case-insensitive)
+    gene_upper = gene.upper()
+    node_match = None
+    for n in G_full.nodes():
+        if str(n).upper() == gene_upper:
+            node_match = n
+            break
+
+    if node_match is None or node_match not in G_full:
+        fig = go.Figure()
+        fig.update_layout(
+            title=f"Gene '{gene}' not found in the network",
+            xaxis=dict(visible=False),
+            yaxis=dict(visible=False),
+            height=400,
+        )
+        return fig
+
+    # Extract ego graph (subgraph within `radius` hops)
+    ego = nx.ego_graph(G_full, node_match, radius=radius)
+
+    if len(ego) == 0:
+        fig = go.Figure()
+        fig.update_layout(
+            title=f"No interactions found for '{gene}'",
+            xaxis=dict(visible=False),
+            yaxis=dict(visible=False),
+            height=400,
+        )
+        return fig
+
+    # Layout — use kamada_kawai for small ego networks for cleaner look
+    if len(ego) <= 200:
+        pos = nx.kamada_kawai_layout(ego)
+    elif layout == "circular":
+        pos = nx.circular_layout(ego)
+    else:
+        pos = nx.spring_layout(ego, k=2.0 / (len(ego) ** 0.5), iterations=100, seed=42)
+
+    # --- Edges ---
+    edge_x, edge_y = [], []
+    for u, v in ego.edges():
+        x0, y0 = pos[u]
+        x1, y1 = pos[v]
+        edge_x += [x0, x1, None]
+        edge_y += [y0, y1, None]
+
+    edge_trace = go.Scatter(
+        x=edge_x, y=edge_y,
+        mode="lines",
+        line=dict(width=1.0, color="#CCCCCC"),
+        hoverinfo="none",
+    )
+
+    # --- Nodes ---
+    node_names = list(ego.nodes())
+    node_x = [pos[n][0] for n in node_names]
+    node_y = [pos[n][1] for n in node_names]
+    degrees = dict(ego.degree())
+    node_degrees = [degrees[n] for n in node_names]
+    max_deg = max(node_degrees) if node_degrees else 1
+    node_sizes = [max(8, 8 + 22 * (d / max_deg)) for d in node_degrees]
+
+    # Color: center gene gets center_color, others by log2FC or degree
+    node_colors = []
+    hover_texts = []
+    for i, n in enumerate(node_names):
+        is_center = str(n).upper() == gene_upper
+        if is_center:
+            node_colors.append(center_color)
+            node_sizes[i] = max(node_sizes[i], 28)
+        elif fc_map:
+            fc = fc_map.get(str(n).upper())
+            if fc is not None and fc > 0:
+                node_colors.append(up_color)
+            elif fc is not None and fc < 0:
+                node_colors.append(down_color)
+            else:
+                node_colors.append(ns_color)
+        else:
+            node_colors.append(ns_color)
+
+        fc_str = ""
+        if fc_map:
+            fc = fc_map.get(str(n).upper())
+            fc_str = f"<br>log2FC: {fc:.3f}" if fc is not None else "<br>log2FC: N/A"
+        role = " (query)" if is_center else ""
+        hover_texts.append(
+            f"<b>{n}</b>{role}<br>Connections: {degrees[n]}{fc_str}"
+        )
+
+    # Show labels on all nodes for ego networks (they're typically small)
+    node_trace = go.Scatter(
+        x=node_x, y=node_y,
+        mode="markers+text",
+        marker=dict(
+            size=node_sizes,
+            color=node_colors,
+            line=dict(width=1.0, color="#333333"),
+        ),
+        text=node_names,
+        textposition="top center",
+        textfont=dict(size=10),
+        hovertext=hover_texts,
+        hoverinfo="text",
+    )
+
+    fig = go.Figure(data=[edge_trace, node_trace])
+    fig.update_layout(
+        title=dict(
+            text=(
+                f"Neighborhood of <b>{node_match}</b> — "
+                f"{len(ego.nodes())} genes, {len(ego.edges())} interactions "
+                f"(radius {radius})"
+            ),
+            font=dict(size=16),
+        ),
+        showlegend=False,
+        xaxis=dict(showgrid=False, zeroline=False, showticklabels=False, visible=False),
+        yaxis=dict(showgrid=False, zeroline=False, showticklabels=False, visible=False),
+        height=600,
+        margin=dict(l=10, r=10, t=50, b=10),
+        plot_bgcolor="white",
+    )
+
+    return fig
