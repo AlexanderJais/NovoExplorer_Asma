@@ -9,6 +9,56 @@ import pandas as pd
 import plotly.graph_objects as go
 
 
+def _build_graph(
+    ppi_df: pd.DataFrame,
+    src_col: str,
+    tgt_col: str,
+    score_col: str,
+) -> nx.Graph:
+    """Build a NetworkX graph from a PPI DataFrame."""
+    G = nx.Graph()
+    has_score = score_col in ppi_df.columns
+    for _, row in ppi_df.iterrows():
+        src = str(row[src_col])
+        tgt = str(row[tgt_col])
+        score = float(row[score_col]) if has_score else 0.5
+        G.add_edge(src, tgt, score=score)
+    return G
+
+
+def _compute_layout(G: nx.Graph, layout: str) -> dict:
+    """Compute node positions using the requested layout algorithm."""
+    if layout == "kamada_kawai" and len(G) <= 500:
+        return nx.kamada_kawai_layout(G)
+    if layout == "circular":
+        return nx.circular_layout(G)
+    return nx.spring_layout(G, k=1.5 / (len(G) ** 0.5), iterations=80, seed=42)
+
+
+def _empty_figure(message: str, height: int = 400) -> go.Figure:
+    """Return a blank figure with a message title."""
+    fig = go.Figure()
+    fig.update_layout(
+        title=message,
+        xaxis=dict(visible=False),
+        yaxis=dict(visible=False),
+        height=height,
+    )
+    return fig
+
+
+def _label_threshold(degrees: dict, node_names: list) -> int:
+    """Determine degree threshold above which labels are shown.
+
+    For small or sparse networks, show all labels. For larger networks,
+    show only hubs.
+    """
+    if len(node_names) <= 30:
+        return 0  # show all labels
+    max_deg = max(degrees[n] for n in node_names) if node_names else 1
+    return max(3, int(max_deg * 0.3))
+
+
 def build_ppi_network(
     ppi_df: pd.DataFrame,
     src_col: str = "source_name",
@@ -28,30 +78,12 @@ def build_ppi_network(
     fc_map : Optional mapping gene_name (upper) -> log2FC for colouring nodes.
     layout : NetworkX layout algorithm ('spring', 'kamada_kawai', 'circular').
     """
-    G = nx.Graph()
-
-    for _, row in ppi_df.iterrows():
-        src = str(row[src_col])
-        tgt = str(row[tgt_col])
-        score = float(row[score_col]) if score_col in row.index else 0.5
-        G.add_edge(src, tgt, score=score)
+    G = _build_graph(ppi_df, src_col, tgt_col, score_col)
 
     if len(G) == 0:
-        fig = go.Figure()
-        fig.update_layout(
-            title="No interactions to display",
-            xaxis=dict(visible=False),
-            yaxis=dict(visible=False),
-        )
-        return fig
+        return _empty_figure("No interactions to display")
 
-    # Compute layout
-    if layout == "kamada_kawai" and len(G) <= 500:
-        pos = nx.kamada_kawai_layout(G)
-    elif layout == "circular":
-        pos = nx.circular_layout(G)
-    else:
-        pos = nx.spring_layout(G, k=1.5 / (len(G) ** 0.5), iterations=80, seed=42)
+    pos = _compute_layout(G, layout)
 
     # --- Edges ---
     edge_x, edge_y = [], []
@@ -81,9 +113,12 @@ def build_ppi_network(
     max_deg = max(node_degrees) if node_degrees else 1
     node_sizes = [max(6, 6 + 20 * (d / max_deg)) for d in node_degrees]
 
+    label_thresh = _label_threshold(degrees, node_names)
+
     # Color by log2FC if available, otherwise by degree
     if fc_map:
         node_colors = []
+        hover_texts = []
         for n in node_names:
             fc = fc_map.get(n.upper())
             if fc is not None and fc > 0:
@@ -92,9 +127,6 @@ def build_ppi_network(
                 node_colors.append(down_color)
             else:
                 node_colors.append(ns_color)
-        hover_texts = []
-        for n in node_names:
-            fc = fc_map.get(n.upper())
             fc_str = f"{fc:.3f}" if fc is not None else "N/A"
             hover_texts.append(
                 f"<b>{n}</b><br>Connections: {degrees[n]}<br>log2FC: {fc_str}"
@@ -104,7 +136,7 @@ def build_ppi_network(
             y=node_y,
             mode="markers+text",
             marker=dict(size=node_sizes, color=node_colors, line=dict(width=0.8, color="#333333")),
-            text=[n if degrees[n] >= max(3, max_deg * 0.3) else "" for n in node_names],
+            text=[n if degrees[n] >= label_thresh else "" for n in node_names],
             textposition="top center",
             textfont=dict(size=9),
             hovertext=hover_texts,
@@ -125,7 +157,7 @@ def build_ppi_network(
                 colorbar=dict(title="Connections", thickness=15),
                 line=dict(width=0.8, color="#333333"),
             ),
-            text=[n if degrees[n] >= max(3, max_deg * 0.3) else "" for n in node_names],
+            text=[n if degrees[n] >= label_thresh else "" for n in node_names],
             textposition="top center",
             textfont=dict(size=9),
             hovertext=hover_texts,
@@ -172,12 +204,7 @@ def build_ego_network(
              2 = neighbors of neighbors).
     center_color : Highlight colour for the query gene node.
     """
-    G_full = nx.Graph()
-    for _, row in ppi_df.iterrows():
-        src = str(row[src_col])
-        tgt = str(row[tgt_col])
-        score = float(row[score_col]) if score_col in row.index else 0.5
-        G_full.add_edge(src, tgt, score=score)
+    G_full = _build_graph(ppi_df, src_col, tgt_col, score_col)
 
     # Find the gene node (case-insensitive)
     gene_upper = gene.upper()
@@ -187,28 +214,14 @@ def build_ego_network(
             node_match = n
             break
 
-    if node_match is None or node_match not in G_full:
-        fig = go.Figure()
-        fig.update_layout(
-            title=f"Gene '{gene}' not found in the network",
-            xaxis=dict(visible=False),
-            yaxis=dict(visible=False),
-            height=400,
-        )
-        return fig
+    if node_match is None:
+        return _empty_figure(f"Gene '{gene}' not found in the network")
 
     # Extract ego graph (subgraph within `radius` hops)
     ego = nx.ego_graph(G_full, node_match, radius=radius)
 
     if len(ego) == 0:
-        fig = go.Figure()
-        fig.update_layout(
-            title=f"No interactions found for '{gene}'",
-            xaxis=dict(visible=False),
-            yaxis=dict(visible=False),
-            height=400,
-        )
-        return fig
+        return _empty_figure(f"No interactions found for '{gene}'")
 
     # Layout — use kamada_kawai for small ego networks for cleaner look
     if len(ego) <= 200:
