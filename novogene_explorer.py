@@ -480,10 +480,13 @@ with tab_gene:
             st.warning(f"No genes matching **{query}** found.")
         else:
             if len(matches) > 1:
+                exact_idx = next(
+                    (i for i, m in enumerate(matches) if m.upper() == query_upper), 0
+                )
                 selected_gene = st.selectbox(
                     f"Found {len(matches)} matches — select one:",
                     matches,
-                    index=0 if query_upper in [m.upper() for m in matches] else 0,
+                    index=exact_idx,
                 )
             else:
                 selected_gene = matches[0]
