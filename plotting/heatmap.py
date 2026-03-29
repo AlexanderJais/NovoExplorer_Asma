@@ -98,13 +98,7 @@ def create_clustered_heatmap(
 
     sub = _select_genes(expression_df, genes, n_top_genes)
     if sub.empty:
-        fig, ax = plt.subplots(figsize=(6, 3))
-        ax.text(0.5, 0.5, "No genes available for heatmap.",
-                ha="center", va="center", fontsize=12, color="#666666",
-                transform=ax.transAxes)
-        ax.set_axis_off()
-        fig.tight_layout()
-        return fig
+        raise ValueError("No genes available for heatmap after filtering.")
     zscored = _zscore_rows(sub)
 
     # Build column color bar if groups provided

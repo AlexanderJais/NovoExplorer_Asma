@@ -155,11 +155,15 @@ def _get_gene_info(
     if expression_df is not None and gene_name in expression_df.index:
         expr_row = expression_df.loc[gene_name]
         if isinstance(expr_row, pd.DataFrame):
-            expr_row = expr_row.iloc[0]
-        info["mean_expression"] = float(expr_row.mean())
-        info["max_expression"] = float(expr_row.max())
-        info["n_samples_detected"] = int((expr_row > 0).sum())
-        info["n_samples_total"] = len(expr_row)
+            if expr_row.empty:
+                expr_row = None
+            else:
+                expr_row = expr_row.iloc[0]
+        if expr_row is not None:
+            info["mean_expression"] = float(expr_row.mean())
+            info["max_expression"] = float(expr_row.max())
+            info["n_samples_detected"] = int((expr_row > 0).sum())
+            info["n_samples_total"] = len(expr_row)
 
     # Cluster assignment
     if similarity_data is not None:

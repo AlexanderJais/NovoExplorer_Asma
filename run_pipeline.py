@@ -116,7 +116,7 @@ def run_pipeline(config: Dict[str, Any]) -> None:
     norm_counts = None
     log2_expr = None
     if norm_result is not None:
-        norm_counts = norm_result.get("standardized")
+        norm_counts = norm_result.get("filtered")
         log2_expr = norm_result.get("log2_expr")
 
     # ------------------------------------------------------------------
@@ -283,7 +283,8 @@ def _normalize_step(counts_df, organism, normalize_mod) -> Dict[str, Any]:
     filtered = normalize_mod.filter_low_expression(standardized)
     log2_expr = normalize_mod.compute_log2_transform(filtered)
     return {
-        "standardized": filtered,
+        "standardized": standardized,
+        "filtered": filtered,
         "log2_expr": log2_expr,
     }
 
