@@ -5,6 +5,7 @@ Provides ``download_csv_button`` for DataFrame exports and
 both Plotly and Matplotlib).
 """
 
+import csv
 from io import BytesIO
 
 import streamlit as st
@@ -26,7 +27,7 @@ def download_csv_button(df, filename, label="Download CSV", key=None):
     """
     if key is None:
         key = f"dl_csv_{filename}"
-    csv_data = df.to_csv(index=True).encode("utf-8")
+    csv_data = df.to_csv(index=True, quoting=csv.QUOTE_NONNUMERIC).encode("utf-8")
     st.download_button(
         label=label,
         data=csv_data,

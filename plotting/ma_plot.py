@@ -10,8 +10,6 @@ import plotly.graph_objects as go
 from plotting.theme import (
     WONG_PALETTE,
     VOLCANO_COLORS,
-    DIVERGING_CMAP,
-    SEQUENTIAL_CMAP,
     apply_plotly_theme,
     apply_matplotlib_theme,
     classify_genes,

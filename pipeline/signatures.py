@@ -306,8 +306,10 @@ def run_enrichment_analysis(
         # Identify significant genes
         has_required = "padj" in deg_df.columns and "log2fc" in deg_df.columns
         sig_mask = (
-            (deg_df["padj"] < padj_thresh)
-            & (deg_df["log2fc"].abs() > log2fc_thresh)
+            deg_df["padj"].notna()
+            & deg_df["log2fc"].notna()
+            & (deg_df["padj"] <= padj_thresh)
+            & (deg_df["log2fc"].abs() >= log2fc_thresh)
         ) if has_required else pd.Series(False, index=deg_df.index)
 
         if has_required:

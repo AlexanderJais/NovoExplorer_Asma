@@ -228,7 +228,7 @@ def compute_pca(
 
     loadings = pd.DataFrame(
         pca.components_.T,
-        index=top_genes[:n_select],
+        index=subset.index,
         columns=component_labels,
     )
 
@@ -236,7 +236,7 @@ def compute_pca(
         "PCA complete: %d components from %d genes x %d samples "
         "(%.1f%% variance explained).",
         n_comp,
-        n_select,
+        len(subset),
         X.shape[0],
         pca.explained_variance_ratio_.sum() * 100,
     )
@@ -309,7 +309,7 @@ def compute_umap(
         "UMAP embedding computed for %d samples (%d top genes, "
         "n_neighbors=%d, min_dist=%.2f).",
         X.shape[0],
-        n_select,
+        len(subset),
         effective_neighbors,
         min_dist,
     )

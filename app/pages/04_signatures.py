@@ -106,7 +106,7 @@ def _normalize_enrichment_df(df: pd.DataFrame) -> pd.DataFrame:
         # overlap is often "3/50" format
         try:
             out["gene_count"] = df["overlap"].astype(str).str.split("/").str[0].astype(int).values
-        except Exception:
+        except (ValueError, TypeError, IndexError):
             pass
 
     # Gene ratio
@@ -122,7 +122,7 @@ def _normalize_enrichment_df(df: pd.DataFrame) -> pd.DataFrame:
             # Avoid division by zero: set ratio to NaN where denominator is 0
             ratio = numerator / denominator.where(denominator != 0, other=np.nan)
             out["gene_ratio"] = ratio.values
-        except Exception:
+        except (ValueError, TypeError, IndexError):
             pass
     if "gene_ratio" not in out.columns and "gene_count" in out.columns:
         # Use gene_count directly as a proxy; avoid dividing by sum of counts
