@@ -107,6 +107,15 @@ def create_upset_plot(
 
     n_intersections = len(intersection_counts)
 
+    if n_intersections == 0:
+        fig, ax = plt.subplots(figsize=(6, 3))
+        ax.text(0.5, 0.5, "No non-empty intersections found.",
+                ha="center", va="center", fontsize=12, color="#666666",
+                transform=ax.transAxes)
+        ax.set_axis_off()
+        fig.tight_layout()
+        return fig, ax
+
     # Set sizes (horizontal bars on the left)
     set_sizes = binary_matrix.sum(axis=0)
 

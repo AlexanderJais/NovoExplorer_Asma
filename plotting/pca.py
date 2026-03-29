@@ -47,8 +47,9 @@ def _confidence_ellipse(
         import logging as _logging
         _logging.getLogger(__name__).warning(
             "Covariance matrix is rank-deficient (collinear samples); "
-            "confidence ellipse will be degenerate."
+            "skipping confidence ellipse."
         )
+        return None, None
     eigenvalues, eigenvectors = np.linalg.eigh(cov)
     # Sort by descending eigenvalue
     order = eigenvalues.argsort()[::-1]
@@ -148,16 +149,17 @@ def create_pca_scatter(
             # 95% confidence ellipse (need >= 3 points)
             if len(gx) >= 3:
                 ex, ey = _confidence_ellipse(gx, gy)
-                fig.add_trace(
-                    go.Scatter(
-                        x=ex,
-                        y=ey,
-                        mode="lines",
-                        line=dict(color=palette[grp], width=1.5, dash="dot"),
-                        showlegend=False,
-                        hoverinfo="skip",
+                if ex is not None and ey is not None:
+                    fig.add_trace(
+                        go.Scatter(
+                            x=ex,
+                            y=ey,
+                            mode="lines",
+                            line=dict(color=palette[grp], width=1.5, dash="dot"),
+                            showlegend=False,
+                            hoverinfo="skip",
+                        )
                     )
-                )
     else:
         fig.add_trace(
             go.Scatter(

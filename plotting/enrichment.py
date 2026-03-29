@@ -26,12 +26,16 @@ def _prepare_enrichment(
 ) -> pd.DataFrame:
     """Sort by significance and keep top terms."""
     df = enrichment_df.dropna(subset=["padj"]).copy()
+    if df.empty:
+        return df
     # Ensure term_name exists, falling back to term_id or first column
     if "term_name" not in df.columns:
         if "term_id" in df.columns:
             df["term_name"] = df["term_id"]
-        else:
+        elif len(df.columns) > 0:
             df["term_name"] = df.iloc[:, 0].astype(str)
+        else:
+            df["term_name"] = df.index.astype(str)
     df["neg_log10_padj"] = -np.log10(df["padj"].clip(lower=1e-300))
     df = df.sort_values("padj", ascending=True).head(max_terms)
     # Reverse so most significant is at top when plotted on y-axis

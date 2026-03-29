@@ -252,9 +252,10 @@ def run_pydeseq2(
         )
 
     # Build a metadata DataFrame aligned to the count matrix columns
+    matched_samples = [s for s in counts_df.columns if s in group_map]
     meta = pd.DataFrame(
-        {"group": [group_map[s] for s in counts_df.columns if s in group_map]},
-        index=[s for s in counts_df.columns if s in group_map],
+        {"group": [group_map[s] for s in matched_samples]},
+        index=matched_samples,
     )
     counts_sub = counts_df[meta.index].copy()
 

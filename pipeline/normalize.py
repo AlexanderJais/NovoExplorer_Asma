@@ -163,7 +163,7 @@ def standardize_expression_matrix(
                 "Gene ID mapping for organism '%s' is empty -- skipping ID conversion.",
                 organism,
             )
-        if mapping is not None and len(mapping) > 0:
+        else:
             # Build a Series for vectorized lookup instead of per-element lambda
             mapping_series = pd.Series(mapping, dtype="object")
             # Only map IDs that actually have a mapping entry
