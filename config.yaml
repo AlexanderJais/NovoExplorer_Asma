@@ -23,16 +23,16 @@ comparisons: "auto"
 #   - ["DrugA", "Vehicle"]
 
 # Gene similarity
-similarity_top_n: 50               # Number of similar genes to return per query
-similarity_variable_genes: 5000    # Top N variable genes for similarity matrix
+# Number of top-variable genes included in the precomputed similarity matrix.
+similarity_variable_genes: 5000
 
 # Signatures
-signature_min_comparisons: 2       # Minimum comparisons for "core" signature
+# Minimum number of comparisons a pathway must be enriched in to be called a
+# "core" signature.
+signature_min_comparisons: 2
+# Gene-set databases for enrichment. These are passed to gseapy; see
+# https://maayanlab.cloud/Enrichr/#libraries for the full list.
 gene_set_databases:
   - "MSigDB_Hallmark_2020"
   - "GO_Biological_Process_2023"
   - "KEGG_2021_Human"
-
-# Web app
-app_port: 8501
-app_theme: "light"

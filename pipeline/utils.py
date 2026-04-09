@@ -374,6 +374,15 @@ _DEFAULT_CONFIG = {
     "threads": 4,
 }
 
+# Aliases: the user-facing config.yaml template uses descriptive names,
+# but the pipeline modules read shorter internal names. Map aliases ->
+# canonical keys so a user editing the template actually affects behavior.
+# Only applied when the canonical key is not already set.
+_CONFIG_ALIASES = {
+    "gene_set_databases": "enrichment_databases",
+    "similarity_variable_genes": "top_n_genes",
+}
+
 
 def load_config(path) -> dict:
     """Read a YAML configuration file and fill in defaults.
@@ -420,6 +429,10 @@ def load_config(path) -> dict:
         user_config = {}
 
     config = {**_DEFAULT_CONFIG, **user_config}
+
+    for alias, canonical in _CONFIG_ALIASES.items():
+        if alias in config and canonical not in user_config:
+            config[canonical] = config[alias]
 
     _logger.info("Loaded configuration from '%s'.", path)
     return config

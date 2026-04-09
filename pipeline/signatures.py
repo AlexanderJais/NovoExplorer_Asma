@@ -601,6 +601,7 @@ def run_signatures(
     """
     config = config or {}
     padj_threshold = config.get("padj_threshold", 0.05)
+    min_comparisons = int(config.get("signature_min_comparisons", 2))
 
     logger.info("=== Starting signature analysis pipeline ===")
 
@@ -622,7 +623,7 @@ def run_signatures(
 
     # --- 3. Core signatures ---
     core_signatures = find_core_signatures(
-        enrichment, min_comparisons=2, padj_threshold=padj_threshold
+        enrichment, min_comparisons=min_comparisons, padj_threshold=padj_threshold
     )
 
     # --- 4. Unique signatures ---

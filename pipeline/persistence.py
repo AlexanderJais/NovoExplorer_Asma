@@ -73,6 +73,17 @@ def _sanitize_name(name: str) -> str:
     return urllib.parse.quote(name, safe="_-.")
 
 
+def _unsanitize_name(name: str) -> str:
+    """Reverse :func:`_sanitize_name` so loaded keys match the originals.
+
+    For names that contained no special characters this is a no-op; for
+    names with spaces, slashes, or parentheses it restores the original
+    string that was passed to :func:`save_results`.
+    """
+    import urllib.parse
+    return urllib.parse.unquote(name)
+
+
 # ---------------------------------------------------------------------------
 # Save
 # ---------------------------------------------------------------------------
@@ -239,7 +250,9 @@ def load_results(output_path: str | Path) -> Dict[str, Any]:
             deg: Dict[str, pd.DataFrame] = {}
             for key in keys:
                 if key.startswith("/deg/"):
-                    comp_name = key.split("/deg/", 1)[1].strip("/")
+                    comp_name = _unsanitize_name(
+                        key.split("/deg/", 1)[1].strip("/")
+                    )
                     deg[comp_name] = store.get(key)
             if deg:
                 results["deg"] = deg
@@ -252,7 +265,7 @@ def load_results(output_path: str | Path) -> Dict[str, Any]:
             for key in keys:
                 if key.startswith("/enrichment/"):
                     remainder = key.split("/enrichment/", 1)[1].strip("/")
-                    segments = remainder.split("/")
+                    segments = [_unsanitize_name(s) for s in remainder.split("/")]
                     if len(segments) == 2:
                         comp_name, db_name = segments
                         enrichment.setdefault(comp_name, {})[db_name] = store.get(key)
@@ -401,7 +414,9 @@ def load_deg(
             deg: Dict[str, pd.DataFrame] = {}
             for key in store.keys():
                 if key.startswith("/deg/"):
-                    comp_name = key.split("/deg/", 1)[1].strip("/")
+                    comp_name = _unsanitize_name(
+                        key.split("/deg/", 1)[1].strip("/")
+                    )
                     deg[comp_name] = store.get(key)
             return deg if deg else None
 
@@ -451,7 +466,7 @@ def load_enrichment(
             for key in store.keys():
                 if key.startswith("/enrichment/"):
                     remainder = key.split("/enrichment/", 1)[1].strip("/")
-                    segments = remainder.split("/")
+                    segments = [_unsanitize_name(s) for s in remainder.split("/")]
                     if len(segments) == 2:
                         comp, db = segments
                         enrichment.setdefault(comp, {})[db] = store.get(key)
@@ -460,9 +475,7 @@ def load_enrichment(
                         enrichment.setdefault(comp, {}).setdefault(db, {})[sub] = store.get(key)
 
             if comparison is not None:
-                # Try both raw and sanitized name
-                sanitized = _sanitize_name(comparison)
-                return enrichment.get(sanitized) or enrichment.get(comparison)
+                return enrichment.get(comparison)
 
             return enrichment if enrichment else None
 
@@ -582,7 +595,9 @@ def list_comparisons(output_path: str | Path) -> List[str]:
             comparisons = []
             for key in store.keys():
                 if key.startswith("/deg/"):
-                    comp_name = key.split("/deg/", 1)[1].strip("/")
+                    comp_name = _unsanitize_name(
+                        key.split("/deg/", 1)[1].strip("/")
+                    )
                     comparisons.append(comp_name)
             return sorted(comparisons)
     except (FileNotFoundError, KeyError, OSError) as exc:

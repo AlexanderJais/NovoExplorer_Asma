@@ -13,25 +13,26 @@ bash setup.sh
 # 2. Activate the virtual environment
 source .venv/bin/activate
 
-# 3. Launch the standalone explorer (point-and-click, no config needed)
-streamlit run novogene_explorer.py
+# 3. Edit config.yaml to point at your Novogene delivery folder
+# 4. Run the analysis pipeline (normalization, QC, DE, similarity, signatures)
+python run_pipeline.py --config config.yaml
 
-# Or pass the data folder directly
+# 5. Launch the multi-page Streamlit app
+streamlit run app/app.py -- --config config.yaml
+```
+
+### Legacy: Single-file Explorer
+
+`novogene_explorer.py` is a standalone single-file Streamlit app that browses a
+Novogene delivery folder directly without running the pipeline. It is kept for
+quick point-and-click use:
+
+```bash
 streamlit run novogene_explorer.py -- /path/to/your/novogene/results
 ```
 
-### Advanced: Full Pipeline Mode
-
-If you want to run the full analysis pipeline (normalization, QC, DE, similarity, signatures) and use the multi-page app:
-
-```bash
-# 1. Edit config.yaml with your settings
-# 2. Run the pipeline
-python run_pipeline.py --config config.yaml
-
-# 3. Launch the multi-page app
-streamlit run app/app.py -- --config config.yaml
-```
+New features (QC dashboards, PPI network, multi-condition comparisons) live in
+the multi-page app under `app/`, not in the legacy file.
 
 ## Project Structure
 
