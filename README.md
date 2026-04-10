@@ -13,11 +13,22 @@ bash setup.sh
 # 2. Activate the virtual environment
 source .venv/bin/activate
 
-# 3. Edit config.yaml to point at your Novogene delivery folder
-# 4. Run the analysis pipeline
+# 3. Launch the app
+streamlit run app/app.py
+```
+
+That's it. In the browser, enter the path to your **Novogene delivery folder**, adjust settings (organism, thresholds), and click **Run Pipeline**. The full analysis runs in-app and the results load automatically.
+
+### Advanced: CLI Pipeline + Config File
+
+For scripted or reproducible workflows, you can run the pipeline from the
+command line with a YAML configuration file:
+
+```bash
+# Edit config.yaml with your settings (data_dir, thresholds, etc.)
 python run_pipeline.py --config config.yaml
 
-# 5. Launch the multi-page Streamlit app
+# Then launch the app pointing at the config
 streamlit run app/app.py -- --config config.yaml
 ```
 

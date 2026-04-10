@@ -10,13 +10,14 @@ Launch with::
     streamlit run app/app.py -- --config config.yaml
 
 When launched without ``--config``, the app shows a welcome screen where
-the user can browse to a results folder or HDF5 file.  Once a valid path
-is provided, the full analysis UI becomes available.
+the user can browse to a Novogene delivery folder, configure settings,
+run the pipeline, and explore results -- all from the browser.
 """
 
 from __future__ import annotations
 
 import html
+import logging
 import sys
 from pathlib import Path
 
@@ -159,6 +160,53 @@ def _init_session_state() -> None:
 # Interactive data picker (welcome / launcher screen)
 # ---------------------------------------------------------------------------
 
+def _looks_like_novogene_delivery(folder: Path) -> bool:
+    """Return True if *folder* contains directories matching Novogene patterns."""
+    if not folder.is_dir():
+        return False
+    names = {c.name.lower() for c in folder.iterdir() if c.is_dir()}
+    # Also check one level down (Novogene sometimes nests under a project dir)
+    for child in folder.iterdir():
+        if child.is_dir():
+            names |= {gc.name.lower() for gc in child.iterdir() if gc.is_dir()}
+    markers = {"differential", "enrichment", "quantification"}
+    # Match against known Novogene patterns
+    for n in names:
+        for pat in ("diff", "deg", "enrich", "quant", "readcount", "fpkm"):
+            if n.startswith(pat):
+                return True
+    return bool(markers & names)
+
+
+def _run_pipeline_in_app(config: dict) -> str | None:
+    """Run the analysis pipeline inside the Streamlit app.
+
+    Returns the path to the HDF5 results file on success, or None on
+    failure.
+    """
+    from run_pipeline import run_pipeline
+
+    # Suppress noisy library loggers during the run
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+        datefmt="%H:%M:%S",
+    )
+
+    output_dir = config.get("output_dir", "results")
+    results_path = str(Path(output_dir) / _DEFAULT_RESULTS_FILENAME)
+
+    try:
+        run_pipeline(config)
+    except Exception as exc:
+        st.error(f"Pipeline failed: **{type(exc).__name__}** -- {exc}")
+        return None
+
+    if Path(results_path).exists():
+        return results_path
+    return None
+
+
 def _show_data_picker() -> None:
     """Render the welcome screen with a folder/file browser."""
     st.markdown("# NovoExplorer")
@@ -167,21 +215,19 @@ def _show_data_picker() -> None:
     st.markdown("---")
 
     st.markdown(
-        "### Welcome! Point NovoExplorer to your analysis results to get started."
+        "### Welcome! Point NovoExplorer at your data to get started."
     )
     st.markdown(
-        "Enter the path to either:\n"
-        f"- A **folder** containing `{_DEFAULT_RESULTS_FILENAME}`\n"
-        "- An **HDF5 results file** (`.h5`) directly\n"
-        "- A **config.yaml** file from a previous pipeline run"
+        "Enter the path to your **Novogene delivery folder**, or to "
+        "previously generated results:"
     )
 
     col1, col2 = st.columns([3, 1])
     with col1:
         user_path = st.text_input(
-            "Results path",
+            "Data path",
             value=st.session_state.get("_picker_path", ""),
-            placeholder="/path/to/results or /path/to/novoexplorer_results.h5",
+            placeholder="/path/to/novogene/delivery  or  /path/to/results.h5",
             key="_picker_input",
         )
     with col2:
@@ -189,11 +235,14 @@ def _show_data_picker() -> None:
         load_clicked = st.button("Load", type="primary", width="stretch")
 
     if not load_clicked or not user_path.strip():
-        _show_picker_help()
         return
 
     user_path = user_path.strip()
     p = Path(user_path).expanduser().resolve()
+
+    if not p.exists():
+        st.error(f"Path does not exist: `{user_path}`")
+        return
 
     # --- Case 1: user pointed to a config.yaml ---
     if p.is_file() and p.suffix in (".yaml", ".yml"):
@@ -201,49 +250,97 @@ def _show_data_picker() -> None:
             st.rerun()
         return
 
-    # --- Case 2: folder or HDF5 file ---
+    # --- Case 2: existing HDF5 results ---
     results_path = _resolve_results_path(user_path)
-    if results_path is None:
-        if not p.exists():
-            st.error(f"Path does not exist: `{user_path}`")
-        elif p.is_dir():
-            st.error(
-                f"No HDF5 results file found in `{user_path}`. "
-                f"Expected `{_DEFAULT_RESULTS_FILENAME}` or a single `.h5` file."
-            )
-        else:
-            st.error(
-                f"Unrecognized file type: `{p.name}`. "
-                "Please provide a `.h5` results file, a results folder, or a `config.yaml`."
-            )
+    if results_path is not None:
+        st.session_state["config"] = {
+            "project_name": p.parent.name if p.is_file() else p.name,
+            "organism": "human",
+        }
+        st.session_state["results_path"] = results_path
+        st.session_state["_picker_path"] = user_path
+        st.rerun()
         return
 
-    # Store minimal config and results path
-    st.session_state["config"] = {
-        "project_name": p.parent.name if p.is_file() else p.name,
-        "organism": "human",
-    }
-    st.session_state["results_path"] = results_path
-    st.session_state["_picker_path"] = user_path
-    st.rerun()
+    # --- Case 3: raw Novogene delivery folder -> offer to run pipeline ---
+    if p.is_dir() and _looks_like_novogene_delivery(p):
+        st.session_state["_picker_path"] = user_path
+        _show_pipeline_launcher(p)
+        return
 
-
-def _show_picker_help() -> None:
-    """Show helpful tips on the welcome screen."""
-    st.markdown("---")
-    with st.expander("How do I get results to load?", expanded=False):
-        st.markdown(
-            "1. Run the NovoExplorer pipeline on your RNA-Seq data:\n"
-            "   ```bash\n"
-            "   python run_pipeline.py --config config.yaml\n"
-            "   ```\n"
-            f"2. This produces `{_DEFAULT_RESULTS_FILENAME}` in your output directory.\n"
-            "3. Enter that directory path above and click **Load**.\n\n"
-            "Alternatively, launch with a config file:\n"
-            "   ```bash\n"
-            "   streamlit run app/app.py -- --config config.yaml\n"
-            "   ```"
+    # --- Nothing recognised ---
+    if p.is_dir():
+        st.error(
+            f"No results or Novogene data found in `{user_path}`. "
+            "Make sure the folder contains Differential/, Enrichment/, or Quantification/ subdirectories."
         )
+    else:
+        st.error(
+            f"Unrecognized file type: `{p.name}`. "
+            "Please provide a Novogene delivery folder, `.h5` results file, or `config.yaml`."
+        )
+
+
+def _show_pipeline_launcher(data_dir: Path) -> None:
+    """Show pipeline settings and a Run button for a raw Novogene folder."""
+    st.success(f"Novogene delivery detected in `{data_dir}`")
+
+    st.markdown("#### Pipeline Settings")
+    st.caption("Adjust these if needed, then click **Run Pipeline**.")
+
+    col_a, col_b = st.columns(2)
+    with col_a:
+        project_name = st.text_input(
+            "Project name",
+            value=data_dir.name,
+            key="_launch_project_name",
+        )
+        organism = st.selectbox(
+            "Organism",
+            options=["human", "mouse"],
+            key="_launch_organism",
+        )
+    with col_b:
+        padj = st.number_input(
+            "Adjusted p-value threshold",
+            value=0.05, min_value=0.0, max_value=1.0,
+            step=0.01, format="%.2f",
+            key="_launch_padj",
+        )
+        log2fc = st.number_input(
+            "log2 fold-change threshold",
+            value=1.0, min_value=0.0,
+            step=0.5, format="%.1f",
+            key="_launch_log2fc",
+        )
+
+    output_dir = str(data_dir / "results")
+
+    if st.button("Run Pipeline", type="primary"):
+        config = {
+            "project_name": project_name,
+            "data_dir": str(data_dir),
+            "output_dir": output_dir,
+            "organism": organism,
+            "padj_threshold": padj,
+            "log2fc_threshold": log2fc,
+        }
+
+        with st.status("Running analysis pipeline...", expanded=True) as status:
+            st.write("Ingesting Novogene data...")
+            results_path = _run_pipeline_in_app(config)
+
+            if results_path is not None:
+                status.update(label="Pipeline complete!", state="complete")
+                st.session_state["config"] = config
+                st.session_state["results_path"] = results_path
+                st.rerun()
+            else:
+                status.update(label="Pipeline failed", state="error")
+                st.error(
+                    "The pipeline did not produce a results file. "
+                    "Check the terminal for detailed error logs."
+                )
 
 
 _init_session_state()
