@@ -41,8 +41,21 @@ _FPKM_PATTERNS = ("gene_fpkm_matrix*", "FPKM*")
 _TPM_PATTERNS = ("gene_tpm_matrix*", "TPM*")
 
 
+def _strip_numbered_prefix(name: str) -> str:
+    """Strip a leading numbered prefix like ``3.`` from a directory name.
+
+    Examples: ``"3.Quant"`` → ``"Quant"``, ``"01.qc"`` → ``"qc"``,
+    ``"Differential"`` → ``"Differential"`` (unchanged).
+    """
+    return re.sub(r"^\d+\.", "", name)
+
+
 def _iglob_dirs(base: Path, patterns: tuple[str, ...]) -> List[Path]:
-    """Return directories under *base* whose names match any pattern (case-insensitive)."""
+    """Return directories under *base* whose names match any pattern (case-insensitive).
+
+    Also matches directories with a numbered prefix (e.g. ``3.Quant`` matches
+    ``quant*``) by stripping the leading ``\\d+.`` before retrying.
+    """
     found: list[Path] = []
     if not base.is_dir():
         return found
@@ -50,13 +63,14 @@ def _iglob_dirs(base: Path, patterns: tuple[str, ...]) -> List[Path]:
         if not child.is_dir():
             continue
         name_lower = child.name.lower()
+        stripped = _strip_numbered_prefix(name_lower)
         for pat in patterns:
             # fnmatch-style: translate glob pattern to regex
             regex = re.compile(
                 re.escape(pat).replace(r"\*", ".*").replace(r"\?", "."),
                 re.IGNORECASE,
             )
-            if regex.fullmatch(name_lower):
+            if regex.fullmatch(name_lower) or (stripped != name_lower and regex.fullmatch(stripped)):
                 found.append(child)
                 break
     return found
@@ -471,11 +485,16 @@ def _detect_enrichment_layout(enrichment_dir: Path) -> str:
     Returns ``"database_first"`` for the raw Novogene layout::
 
         enrichment_dir/KEGG/{comparison}/{all|up|down}/*_KEGGenrich.xls
+
+    Handles numbered prefixes (e.g. ``1.GO``, ``2.KEGG``).
     """
     _DB_NAMES = {"go", "kegg", "disgenet", "do", "reactome", "ppi"}
     for child in enrichment_dir.iterdir():
-        if child.is_dir() and child.name.lower() in _DB_NAMES:
-            return "database_first"
+        if child.is_dir():
+            name_lower = child.name.lower()
+            stripped = _strip_numbered_prefix(name_lower)
+            if name_lower in _DB_NAMES or stripped in _DB_NAMES:
+                return "database_first"
     return "comparison_first"
 
 

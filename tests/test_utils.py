@@ -205,7 +205,7 @@ class TestLoadConfig:
         p = tmp_path / "empty.yaml"
         p.write_text("")
         cfg = load_config(p)
-        assert cfg["organism"] == "human"
+        assert cfg["organism"] == "mouse"
 
     def test_missing_file_raises(self, tmp_path):
         with pytest.raises(FileNotFoundError):
@@ -215,4 +215,4 @@ class TestLoadConfig:
         p = tmp_path / "bad.yaml"
         p.write_text(":\n  - :\n    invalid: [")
         cfg = load_config(p)
-        assert cfg["organism"] == "human"
+        assert cfg["organism"] == "mouse"
