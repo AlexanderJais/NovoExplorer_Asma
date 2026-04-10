@@ -1,37 +1,67 @@
+# ==========================================================================
 # NovoExplorer Configuration
+# ==========================================================================
+# All keys are optional.  Anything omitted here falls back to a sensible
+# default (see README.md > Configuration for the full reference).
+
 project_name: "My RNA-Seq Experiment"
 
-# Path to Novogene delivery folder(s)
+# --------------------------------------------------------------------------
+# Input / output paths
+# --------------------------------------------------------------------------
+# data_dir: root of the Novogene delivery folder.  The pipeline auto-
+#   discovers quantification matrices, DEG tables, and enrichment results
+#   under this directory.
 data_dir: "./data"
+
+# output_dir: where the pipeline writes its HDF5 results file
+#   (novoexplorer_results.h5) and any other output artefacts.
 output_dir: "./results"
 
-# Organism (determines gene name mappings and gene set databases)
-organism: "human"   # "human" or "mouse"
+# --------------------------------------------------------------------------
+# Organism
+# --------------------------------------------------------------------------
+# Determines gene-name mappings (ENSG -> symbol) and which gene-set
+# organism is passed to gseapy.  Supported values: "human", "mouse".
+organism: "human"
 
-# Differential expression thresholds
+# --------------------------------------------------------------------------
+# Differential expression
+# --------------------------------------------------------------------------
+# Significance thresholds used throughout the pipeline and the app.
 padj_threshold: 0.05
 log2fc_threshold: 1.0
 
-# Whether to re-run DE with pyDESeq2 even if Novogene results exist
+# Set to true to re-run differential expression from raw counts via
+# pyDESeq2, even when Novogene-supplied DEG results already exist.
+# When false (default), Novogene results are cleaned and used as-is.
 rerun_de: false
 
-# Contrasts (leave as "auto" to discover from folder names)
+# How to determine contrasts.  "auto" discovers them from folder names
+# in the Novogene delivery.  Or specify explicitly:
+#   comparisons:
+#     - ["Treatment", "Control"]
+#     - ["DrugA", "Vehicle"]
 comparisons: "auto"
-# Or specify explicitly:
-# comparisons:
-#   - ["Treatment", "Control"]
-#   - ["DrugA", "Vehicle"]
 
+# --------------------------------------------------------------------------
 # Gene similarity
-# Number of top-variable genes included in the precomputed similarity matrix.
+# --------------------------------------------------------------------------
+# Number of top-variable genes included in the precomputed cosine
+# similarity matrix.  Higher values capture more biology but increase
+# memory and computation time (the matrix is N x N).
 similarity_variable_genes: 5000
 
-# Signatures
-# Minimum number of comparisons a pathway must be enriched in to be called a
-# "core" signature.
+# --------------------------------------------------------------------------
+# Signature analysis
+# --------------------------------------------------------------------------
+# Minimum number of comparisons a pathway must be enriched in to be
+# called a "core" signature in the Signatures & Pathways page.
 signature_min_comparisons: 2
-# Gene-set databases for enrichment. These are passed to gseapy; see
-# https://maayanlab.cloud/Enrichr/#libraries for the full list.
+
+# Gene-set databases for GSEA and over-representation analysis.
+# These names are passed to gseapy; the full list of available libraries
+# is at https://maayanlab.cloud/Enrichr/#libraries
 gene_set_databases:
   - "MSigDB_Hallmark_2020"
   - "GO_Biological_Process_2023"
