@@ -1,17 +1,21 @@
 #!/usr/bin/env python
-"""NovoExplorer -- Main Streamlit application entry point.
+"""NovoExplorer -- Multi-page Streamlit app (pipeline-backed).
+
+This is the pipeline-backed multi-page app that provides additional
+analytical features (PCA/UMAP, gene similarity, GSEA, signature overlap)
+on top of the main explorer (``novogene_explorer.py``).
 
 Launch with::
 
-    # Interactive mode (pick data in the browser):
+    # Interactive mode (pick data folder, run pipeline in the browser):
     streamlit run app/app.py
 
     # Config mode (pre-configured project):
     streamlit run app/app.py -- --config config.yaml
 
-When launched without ``--config``, the app shows a welcome screen where
-the user can browse to a Novogene delivery folder, configure settings,
-run the pipeline, and explore results -- all from the browser.
+For the main Novogene delivery explorer (no pipeline required), use::
+
+    streamlit run novogene_explorer.py -- /path/to/novogene/results
 """
 
 from __future__ import annotations

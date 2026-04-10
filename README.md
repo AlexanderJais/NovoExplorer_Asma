@@ -13,78 +13,34 @@ bash setup.sh
 # 2. Activate the virtual environment
 source .venv/bin/activate
 
-# 3. Launch the app
-streamlit run app/app.py
-```
-
-That's it. In the browser, enter the path to your **Novogene delivery folder**, adjust settings (organism, thresholds), and click **Run Pipeline**. The full analysis runs in-app and the results load automatically.
-
-### Advanced: CLI Pipeline + Config File
-
-For scripted or reproducible workflows, you can run the pipeline from the
-command line with a YAML configuration file:
-
-```bash
-# Edit config.yaml with your settings (data_dir, thresholds, etc.)
-python run_pipeline.py --config config.yaml
-
-# Then launch the app pointing at the config
-streamlit run app/app.py -- --config config.yaml
-```
-
-### Legacy: Single-file Explorer
-
-`novogene_explorer.py` is a standalone single-file Streamlit app that browses a
-Novogene delivery folder directly without running the pipeline. It is kept for
-quick point-and-click use:
-
-```bash
+# 3. Launch the app -- pass your Novogene delivery folder directly
 streamlit run novogene_explorer.py -- /path/to/your/novogene/results
 ```
 
-New features (QC dashboards, PPI network, multi-condition comparisons) live in
-the multi-page app under `app/`, not in the legacy file.
+Or launch without arguments to pick the folder in the browser:
 
-## How the Pipeline Works
+```bash
+streamlit run novogene_explorer.py
+```
 
-`run_pipeline.py --config config.yaml` executes these stages in order:
+No configuration files, no pipeline commands. Just point and explore.
 
-| Stage | Module | What it does |
-|-------|--------|-------------|
-| **1. Ingest** | `pipeline/ingest.py` | Walks the Novogene delivery folder, discovers quantification matrices, DEG tables, and enrichment results. Handles both `database_first` and `comparison_first` enrichment layouts. |
-| **2. Normalize** | `pipeline/normalize.py` | Filters low-count genes, computes TPM from raw counts and gene lengths, and produces a log2(TPM+1) expression matrix for downstream analysis. |
-| **3. QC** | `pipeline/qc.py` | Computes library sizes, gene detection rates, mitochondrial fractions, sample-sample correlation, PCA, and UMAP embeddings. Optionally flags outlier samples. |
-| **4. Differential Expression** | `pipeline/diffexp.py` | Cleans and standardizes Novogene DEG results. If `rerun_de: true`, re-runs DE from counts using pyDESeq2 and merges with Novogene results. |
-| **5. Similarity** | `pipeline/similarity.py` | Builds a gene-gene cosine similarity matrix over the top variable genes, performs hierarchical clustering, and computes per-comparison expression signature vectors. |
-| **6. Signatures** | `pipeline/signatures.py` | Runs GSEA and over-representation analysis (ORA) via gseapy, computes Jaccard overlap of significant gene sets across comparisons, and identifies core (shared) and unique pathway signatures. |
-| **7. Save** | `pipeline/persistence.py` | Persists all results to a single HDF5 file (`results/novoexplorer_results.h5`) for fast loading by the Streamlit app. |
+## Features
 
-## Pages (Multi-Page App)
-
-| Page | Description |
-|------|-------------|
-| **Overview** | Library sizes, gene detection rates, PCA scatter, sample correlation heatmap, DEG counts per comparison. |
-| **Differential Expression** | Interactive volcano and MA plots with gene highlighting, sortable DEG table, per-gene expression bar charts, gene basket. |
-| **Gene Search** | Autocomplete gene search, expression profile across samples, log2FC across all comparisons, similar-gene finder (cosine similarity), gene basket management. |
-| **Signatures & Pathways** | GSEA enrichment dot plots per comparison, Jaccard overlap heatmap, core signatures (enriched across multiple comparisons), unique signatures. |
-| **Multi-Condition** | UpSet plot of DEG overlaps, fold-change concordance scatter between comparison pairs, cross-comparison gene summary table. |
-
-## Tabs (Standalone Explorer)
-
-The legacy `novogene_explorer.py` has these tabs:
+NovoExplorer provides 11 interactive tabs:
 
 | Tab | Description |
 |-----|-------------|
-| **Overview** | DEG summary statistics, bar charts of up/down counts per comparison |
-| **Gene Explorer** | Search a gene, see its log2FC across all comparisons. Multi-gene heatmap. |
+| **Overview** | DEG summary statistics, bar charts of up/down-regulated gene counts per comparison |
+| **Gene Explorer** | Search any gene, see its log2FC across all comparisons, multi-gene heatmap |
 | **Comparison Browser** | Volcano plot with interactive gene labels, filterable DEG table |
 | **Enrichment** | Dot plots, bar charts, cross-comparison enrichment search |
-| **MA Plot** | baseMean vs log2FC -- shows expression-dependent fold changes |
+| **MA Plot** | baseMean vs log2FC -- reveals expression-dependent fold changes |
 | **Venn / UpSet** | Overlap of significant DEGs across comparisons |
-| **Ranked Genes** | Waterfall plot of all genes sorted by FC or significance |
+| **Ranked Genes** | Waterfall plot of all genes sorted by fold change or significance |
 | **DEG Summary** | Wide table: log2FC + padj for every gene across all comparisons |
 | **Pathway Viewer** | Select a GO/KEGG/Reactome term, see member genes colored by log2FC |
-| **PPI Network** | Protein-protein interaction hub analysis, score filtering, gene search |
+| **PPI Network** | Protein-protein interaction hub analysis, score filtering, gene neighborhood |
 | **Export** | Download Excel workbook or ZIP of CSVs with optional significance filtering |
 
 ## Supported Data
@@ -127,9 +83,50 @@ Both `database_first` (e.g. `Enrichment/GO/CompA_vs_CompB/`) and `comparison_fir
 | Reactome | Reactome pathway database |
 | PPI | Protein-protein interaction networks |
 
+## Advanced: Analysis Pipeline + Multi-Page App
+
+For deeper analysis (normalization, QC, gene similarity, GSEA, signature overlap), NovoExplorer includes a computational pipeline and a multi-page app that builds on the pipeline's results.
+
+### Running the Pipeline
+
+```bash
+# Option A: launch the multi-page app and run the pipeline from the browser
+streamlit run app/app.py
+
+# Option B: run from the command line with a config file
+python run_pipeline.py --config config.yaml
+streamlit run app/app.py -- --config config.yaml
+```
+
+The multi-page app (`app/app.py`) can detect a raw Novogene delivery folder, let you configure settings in the browser, and run the pipeline without touching the command line.
+
+### Pipeline Stages
+
+| Stage | Module | What it does |
+|-------|--------|-------------|
+| **1. Ingest** | `pipeline/ingest.py` | Walks the Novogene delivery folder, discovers quantification matrices, DEG tables, and enrichment results. |
+| **2. Normalize** | `pipeline/normalize.py` | Filters low-count genes, computes TPM, produces a log2(TPM+1) expression matrix. |
+| **3. QC** | `pipeline/qc.py` | Library sizes, detection rates, mitochondrial fractions, sample correlation, PCA, UMAP. |
+| **4. Differential Expression** | `pipeline/diffexp.py` | Cleans Novogene DEG results. Optionally re-runs DE via pyDESeq2. |
+| **5. Similarity** | `pipeline/similarity.py` | Gene-gene cosine similarity, hierarchical clustering, expression signature vectors. |
+| **6. Signatures** | `pipeline/signatures.py` | GSEA, ORA via gseapy, Jaccard overlap, core/unique pathway signatures. |
+| **7. Save** | `pipeline/persistence.py` | Persists all results to `results/novoexplorer_results.h5`. |
+
+### Multi-Page App
+
+The pipeline-backed app provides additional analytical features not available in the main explorer:
+
+| Page | What it adds beyond the main explorer |
+|------|---------------------------------------|
+| **Overview** | PCA scatter, UMAP, sample correlation heatmap, library size / detection rate QC |
+| **Differential Expression** | Per-gene expression bar charts, gene basket for collecting genes across pages |
+| **Gene Search** | Similar-gene discovery via cosine similarity across expression profiles |
+| **Signatures & Pathways** | GSEA dot plots, Jaccard overlap heatmap, core/unique signature identification |
+| **Multi-Condition** | Fold-change concordance scatter between comparison pairs |
+
 ## Configuration
 
-Edit `config.yaml` to customize the pipeline. All keys are optional -- defaults are applied for anything omitted.
+`config.yaml` is only needed for the pipeline (not for the main explorer). All keys are optional -- defaults are applied for anything omitted.
 
 ### Core Settings
 
@@ -153,41 +150,20 @@ Edit `config.yaml` to customize the pipeline. All keys are optional -- defaults 
 
 | Key | Default | Description |
 |-----|---------|-------------|
-| `similarity_variable_genes` | `5000` | Number of top-variable genes used to build the precomputed cosine similarity matrix. Higher values capture more biology but increase memory. |
+| `similarity_variable_genes` | `5000` | Number of top-variable genes for the cosine similarity matrix. |
 
 ### Signature Analysis
 
 | Key | Default | Description |
 |-----|---------|-------------|
-| `signature_min_comparisons` | `2` | Minimum number of comparisons a pathway must be enriched in to be called a "core" signature. |
-| `gene_set_databases` | `["MSigDB_Hallmark_2020", ...]` | Gene-set libraries passed to gseapy for enrichment analysis. See the [Enrichr libraries list](https://maayanlab.cloud/Enrichr/#libraries) for available options. |
+| `signature_min_comparisons` | `2` | Minimum comparisons a pathway must be enriched in to be called a "core" signature. |
+| `gene_set_databases` | `["MSigDB_Hallmark_2020", ...]` | Gene-set libraries for enrichment analysis. See the [Enrichr libraries list](https://maayanlab.cloud/Enrichr/#libraries). |
 
 ### Advanced
 
 | Key | Default | Description |
 |-----|---------|-------------|
 | `log_level` | `"INFO"` | Python logging level (`DEBUG`, `INFO`, `WARNING`, `ERROR`). |
-
-### Example
-
-```yaml
-project_name: "My RNA-Seq Experiment"
-data_dir: "./data"
-output_dir: "./results"
-organism: "human"
-padj_threshold: 0.05
-log2fc_threshold: 1.0
-rerun_de: false
-comparisons: "auto"
-
-similarity_variable_genes: 5000
-
-signature_min_comparisons: 2
-gene_set_databases:
-  - "MSigDB_Hallmark_2020"
-  - "GO_Biological_Process_2023"
-  - "KEGG_2021_Human"
-```
 
 ## Requirements
 
@@ -217,13 +193,13 @@ pip install --prefer-binary -r requirements.txt
 
 ```
 NovoExplorer/
-  run_pipeline.py         # CLI entry point for the full analysis pipeline
-  config.yaml             # Pipeline configuration template
+  novogene_explorer.py    # Main Streamlit app (11 tabs, direct Novogene folder browsing)
+  run_pipeline.py         # CLI entry point for the analysis pipeline
+  config.yaml             # Pipeline configuration (not needed for main app)
   setup.sh                # One-step setup script (venv + deps + gene sets)
   requirements.txt        # Python dependencies with platform-specific pins
-  novogene_explorer.py    # Legacy standalone single-file Streamlit app
-  app/                    # Multi-page Streamlit app
-    app.py                #   Main entry point and page routing
+  app/                    # Multi-page Streamlit app (pipeline-backed, additional analyses)
+    app.py                #   Entry point, data picker, in-app pipeline runner
     style.css             #   Custom theme
     pages/                #   Individual pages (overview, diffexp, gene search, ...)
     components/           #   Shared UI widgets (filters, gene basket, downloads)
@@ -301,23 +277,6 @@ sudo apt-get install cmake
 bash setup.sh
 ```
 
-### "No differential expression results found" in the app
-
-Make sure `data_dir` in `config.yaml` points to the root of your Novogene delivery folder (the directory that contains `Differential/`, `Enrichment/`, etc.). Then re-run the pipeline:
-
-```bash
-python run_pipeline.py --config config.yaml
-```
-
-### The app shows encoded comparison names like `Drug%20A_vs_Control`
-
-This was fixed in commit `d2c6dbd`. Pull the latest `main` and re-run the pipeline to regenerate the HDF5 file:
-
-```bash
-git pull origin main
-python run_pipeline.py --config config.yaml
-```
-
 ### Streamlit shows "No module named 'pipeline'"
 
 Make sure you launch the app from the NovoExplorer root directory:
@@ -325,5 +284,5 @@ Make sure you launch the app from the NovoExplorer root directory:
 ```bash
 cd /path/to/NovoExplorer
 source .venv/bin/activate
-streamlit run app/app.py -- --config config.yaml
+streamlit run novogene_explorer.py
 ```
