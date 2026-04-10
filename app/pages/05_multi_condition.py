@@ -54,6 +54,7 @@ _get_data_path = get_data_path
 
 @st.cache_data(show_spinner="Loading DEG data...")
 def _load_deg(path: str) -> dict | None:
+    """Load cached DEG tables for all comparisons."""
     return load_deg(path)
 
 
@@ -417,6 +418,12 @@ def _style_log2fc_cell(val, padj_val, padj_thresh, log2fc_thresh):
 # ---------------------------------------------------------------------------
 
 def main() -> None:
+    """Render the Multi-Condition Comparison page.
+
+    Provides three analysis sections: DEG overlap (UpSet-style plot),
+    fold-change concordance scatter between comparison pairs, and a
+    unified gene-level summary table with per-comparison log2FC.
+    """
     st.title("Multi-Condition Comparison")
     st.caption(
         "Compare differential expression results across multiple conditions. "

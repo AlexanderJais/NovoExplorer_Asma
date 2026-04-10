@@ -65,7 +65,16 @@ def _run_step(step_name: str, func, *args, **kwargs) -> Any:
 # -------------------------------------------------------------------
 
 def run_pipeline(config: Dict[str, Any]) -> None:
-    """Execute every pipeline stage in order, passing outputs forward."""
+    """Execute every pipeline stage in order, passing outputs forward.
+
+    Runs ingestion, normalization, QC, differential expression, similarity,
+    signature analysis, and saves all results to an HDF5 file.
+
+    Parameters
+    ----------
+    config : dict[str, Any]
+        Pipeline configuration dict (see ``config.yaml`` for available keys).
+    """
 
     from pipeline import ingest, normalize, qc, diffexp, similarity, signatures, persistence
 
@@ -294,6 +303,7 @@ def _normalize_step(counts_df, organism, normalize_mod) -> Dict[str, Any]:
 # -------------------------------------------------------------------
 
 def main() -> None:
+    """CLI entry point: parse arguments, load config, and run the pipeline."""
     parser = argparse.ArgumentParser(
         description="NovoExplorer RNA-Seq analysis pipeline",
     )

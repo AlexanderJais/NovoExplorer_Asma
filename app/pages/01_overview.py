@@ -84,21 +84,25 @@ _get_data_path = get_data_path
 
 @st.cache_data(show_spinner="Loading results...")
 def _load_all_results(path: str) -> dict:
+    """Load all pipeline results from the HDF5 file at *path*."""
     return load_results(path)
 
 
 @st.cache_data(show_spinner="Loading expression matrix...")
 def _load_expression(path: str, matrix_type: str = "tpm") -> pd.DataFrame | None:
+    """Load a cached expression matrix (counts, TPM, or FPKM)."""
     return load_expression(path, matrix_type=matrix_type)
 
 
 @st.cache_data(show_spinner="Loading QC data...")
 def _load_qc(path: str) -> dict | None:
+    """Load cached QC metrics (library sizes, correlations, PCA, etc.)."""
     return load_qc(path)
 
 
 @st.cache_data(show_spinner="Loading DEG data...")
 def _load_deg(path: str) -> dict | None:
+    """Load cached DEG tables for all comparisons."""
     return load_deg(path)
 
 
@@ -111,6 +115,12 @@ _get_sample_groups = get_sample_groups
 
 
 def main() -> None:
+    """Render the Overview Dashboard page.
+
+    Displays high-level experiment metrics, dimensionality-reduction
+    scatters (PCA, UMAP), sample correlation heatmap, top-variable-gene
+    heatmap, and a per-comparison DEG summary table.
+    """
     st.title("Overview Dashboard")
     st.caption(
         "High-level summary of your RNA-Seq experiment: sample counts, "

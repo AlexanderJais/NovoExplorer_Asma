@@ -68,21 +68,25 @@ _get_data_path = get_data_path
 
 @st.cache_data(show_spinner="Loading results...")
 def _load_all_results(path: str) -> dict:
+    """Load all pipeline results from the HDF5 file at *path*."""
     return load_results(path)
 
 
 @st.cache_data(show_spinner="Loading expression matrix...")
 def _load_expression(path: str, matrix_type: str = "tpm") -> pd.DataFrame | None:
+    """Load a cached expression matrix (counts, TPM, or FPKM)."""
     return load_expression(path, matrix_type=matrix_type)
 
 
 @st.cache_data(show_spinner="Loading DEG data...")
 def _load_deg(path: str) -> dict | None:
+    """Load cached DEG tables for all comparisons."""
     return load_deg(path)
 
 
 @st.cache_data(show_spinner="Listing comparisons...")
 def _list_comparisons(path: str) -> list[str]:
+    """Return the list of available comparison names from the HDF5 file."""
     return list_comparisons(path)
 
 
@@ -140,6 +144,13 @@ def _create_volcano_with_highlight(
 
 
 def main() -> None:
+    """Render the Differential Expression Explorer page.
+
+    Provides an interactive volcano plot, MA plot, sortable DEG table,
+    gene search highlighting, basket integration, and per-gene expression
+    bar charts.  Users select a comparison and adjust thresholds via the
+    sidebar.
+    """
     st.title("Differential Expression Explorer")
     st.caption(
         "Visualize differential expression results with interactive volcano plots, "

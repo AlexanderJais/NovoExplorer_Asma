@@ -60,21 +60,25 @@ _get_data_path = get_data_path
 
 @st.cache_data(show_spinner="Loading results...")
 def _load_all_results(path: str) -> dict:
+    """Load all pipeline results from the HDF5 file at *path*."""
     return load_results(path)
 
 
 @st.cache_data(show_spinner="Loading expression matrix...")
 def _load_expression(path: str, matrix_type: str = "tpm") -> pd.DataFrame | None:
+    """Load a cached expression matrix (counts, TPM, or FPKM)."""
     return load_expression(path, matrix_type=matrix_type)
 
 
 @st.cache_data(show_spinner="Loading similarity data...")
 def _load_similarity(path: str) -> dict | None:
+    """Load cached gene-gene cosine similarity matrix and cluster labels."""
     return load_similarity(path)
 
 
 @st.cache_data(show_spinner="Loading DEG data...")
 def _load_deg(path: str) -> dict | None:
+    """Load cached DEG tables for all comparisons."""
     return load_deg(path)
 
 
@@ -205,6 +209,12 @@ def _get_gene_info(
 
 
 def main() -> None:
+    """Render the Gene Search & Similarity Finder page.
+
+    Provides gene name search with autocomplete, expression bar charts,
+    similar-gene discovery via cosine similarity, gene info cards, and
+    basket integration for collecting genes across pages.
+    """
     st.title("Gene Search & Similarity Finder")
     st.caption(
         "Search for any gene to view its expression profile, find co-expressed genes "

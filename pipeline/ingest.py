@@ -80,6 +80,18 @@ def iglob_files(base: Path, patterns: tuple[str, ...]) -> List[Path]:
     """Return files under *base* whose names match any pattern (case-insensitive).
 
     Searches only the immediate directory (non-recursive).
+
+    Parameters
+    ----------
+    base : Path
+        Directory to search.
+    patterns : tuple[str, ...]
+        Glob-style file name patterns (e.g. ``("*.xls", "*.csv")``).
+
+    Returns
+    -------
+    list[Path]
+        Matching file paths, sorted by name.
     """
     found: list[Path] = []
     if not base.is_dir():
@@ -123,7 +135,17 @@ def is_container_dir(subdir: Path) -> bool:
     """Check if *subdir* is an intermediate container (not an actual comparison).
 
     Container directories have a numbered prefix (e.g. ``1.deglist``,
-    ``2.cluster``) — a convention used in raw Novogene deliveries.
+    ``2.cluster``) -- a convention used in raw Novogene deliveries.
+
+    Parameters
+    ----------
+    subdir : Path
+        Directory to check.
+
+    Returns
+    -------
+    bool
+        ``True`` if the directory name starts with ``\\d+.``.
     """
     return bool(_NUMBERED_DIR_RE.match(subdir.name))
 
@@ -138,7 +160,18 @@ def _find_sample_info_file(base: Path) -> Optional[Path]:
 
 
 def sorted_walk(base: Path):
-    """os.walk replacement using pathlib, yielding (root, dirs, files) with sorted names."""
+    """os.walk replacement using pathlib, yielding (root, dirs, files) with sorted names.
+
+    Parameters
+    ----------
+    base : Path
+        Root directory to walk.
+
+    Yields
+    ------
+    tuple[str, list[str], list[str]]
+        ``(root, dirs, files)`` with both lists sorted alphabetically.
+    """
     import os
 
     for root, dirs, files in os.walk(base):
@@ -155,11 +188,17 @@ def sorted_walk(base: Path):
 def discover_novogene_structure(data_dir: str | Path) -> Dict[str, Any]:
     """Walk *data_dir* recursively and catalogue Novogene delivery folders.
 
-    Returns a dict with keys:
-        quant_dir, deg_dir, enrichment_dir, qc_dir, mapping_dir
-            – first matching Path or None
-        sample_info_file – Path or None
-        discovered_files – flat list of every file found during the walk
+    Parameters
+    ----------
+    data_dir : str or Path
+        Root of the Novogene delivery folder.
+
+    Returns
+    -------
+    dict[str, Any]
+        Keys: ``quant_dir``, ``deg_dir``, ``enrichment_dir``, ``qc_dir``,
+        ``mapping_dir`` (each a Path or None), ``sample_info_file``
+        (Path or None), and ``discovered_files`` (list of all files found).
     """
     data_dir = Path(data_dir).resolve()
     if not data_dir.is_dir():
@@ -229,8 +268,16 @@ def discover_novogene_structure(data_dir: str | Path) -> Dict[str, Any]:
 def parse_expression_matrices(quant_dir: str | Path | None) -> Dict[str, Optional[pd.DataFrame]]:
     """Find and parse count, FPKM, and TPM matrices from *quant_dir*.
 
-    Returns dict with keys ``'counts'``, ``'fpkm'``, ``'tpm'``; any may be
-    ``None`` if the corresponding file was not found.
+    Parameters
+    ----------
+    quant_dir : str, Path, or None
+        Path to the quantification directory.  Returns empty results if None.
+
+    Returns
+    -------
+    dict[str, pd.DataFrame or None]
+        Keys ``'counts'``, ``'fpkm'``, ``'tpm'``; any may be ``None``
+        if the corresponding file was not found.
     """
     result: Dict[str, Optional[pd.DataFrame]] = {
         "counts": None,
@@ -302,10 +349,19 @@ def parse_deg_results(deg_dir: str | Path | None) -> Dict[str, pd.DataFrame]:
           2.cluster/
             ...
 
-    Numbered containers (``1.xxx``, ``2.xxx``, …) are transparently
+    Numbered containers (``1.xxx``, ``2.xxx``, ...) are transparently
     descended into so the comparison folders within them are found.
 
-    Returns ``{comparison_name: DataFrame}`` with standardised column names.
+    Parameters
+    ----------
+    deg_dir : str, Path, or None
+        Path to the differential expression results directory.
+
+    Returns
+    -------
+    dict[str, pd.DataFrame]
+        Mapping of comparison name to DataFrame with standardized columns
+        (``gene_id``, ``gene_name``, ``log2fc``, ``pvalue``, ``padj``, etc.).
     """
     results: Dict[str, pd.DataFrame] = {}
 
@@ -671,7 +727,17 @@ def parse_enrichment_results(
             CompA_vs_CompB/
               all/  *_GOenrich.xls
 
-    Returns ``{comparison: {database: DataFrame}}``.
+    Parameters
+    ----------
+    enrichment_dir : str, Path, or None
+        Path to the enrichment results directory.
+
+    Returns
+    -------
+    dict[str, dict[str, pd.DataFrame]]
+        Nested mapping ``{comparison: {database: DataFrame}}``.
+        Database keys include ``GO``, ``KEGG``, ``DisGeNET``, ``DO``,
+        ``Reactome``, etc.
     """
     results: Dict[str, Dict[str, pd.DataFrame]] = {}
 
@@ -736,8 +802,16 @@ def parse_ppi_results(
     Each table contains pairwise protein interactions with columns such as
     ``node1_gene``, ``node1_name``, ``node2_gene``, ``node2_name``, ``score``.
 
-    Returns ``{comparison_name: DataFrame}`` with standardised columns:
-    ``source``, ``target``, ``source_name``, ``target_name``, ``score``.
+    Parameters
+    ----------
+    enrichment_dir : str, Path, or None
+        Path to the enrichment directory (PPI is a subdirectory within it).
+
+    Returns
+    -------
+    dict[str, pd.DataFrame]
+        Mapping ``{comparison_name: DataFrame}`` with standardized columns:
+        ``source``, ``target``, ``source_name``, ``target_name``, ``score``.
     """
     results: Dict[str, pd.DataFrame] = {}
 
@@ -833,8 +907,16 @@ def parse_sample_info(file_path: str | Path | None) -> Optional[pd.DataFrame]:
     are matched case-insensitively against known aliases for *sample_id* and
     *group*.
 
-    Returns a DataFrame with exactly two columns: ``sample_id``, ``group``,
-    or ``None`` if parsing fails.
+    Parameters
+    ----------
+    file_path : str, Path, or None
+        Path to the sample info file (e.g. ``sample_info.txt``).
+
+    Returns
+    -------
+    pd.DataFrame or None
+        DataFrame with columns ``sample_id`` and ``group``, or ``None``
+        if the file is missing or cannot be parsed.
     """
     if file_path is None:
         return None
@@ -903,7 +985,17 @@ def infer_groups_from_comparisons(deg_results: Dict[str, pd.DataFrame]) -> Dict[
     back to ``'vs'`` without underscores for Novogene naming conventions
     like ``GroupAvs GroupB``.
 
-    Returns ``{"groups": [group1, group2, ...], "comparisons": [comp1, ...]}``.
+    Parameters
+    ----------
+    deg_results : dict[str, pd.DataFrame]
+        Mapping of comparison name to DEG DataFrame (as returned by
+        :func:`parse_deg_results`).
+
+    Returns
+    -------
+    dict[str, list[str]]
+        Keys: ``"groups"`` (unique group names) and ``"comparisons"``
+        (comparison names in sorted order).
     """
     groups: set[str] = set()
     comparisons: list[str] = []

@@ -55,11 +55,13 @@ _get_data_path = get_data_path
 
 @st.cache_data(show_spinner="Loading enrichment data...")
 def _load_enrichment(path: str) -> dict | None:
+    """Load cached enrichment results from the HDF5 file."""
     return load_enrichment(path)
 
 
 @st.cache_data(show_spinner="Loading signature data...")
 def _load_signatures(path: str) -> dict | None:
+    """Load cached signature analysis results (overlap, core, unique)."""
     return load_signatures(path)
 
 
@@ -322,6 +324,12 @@ def _find_unique_signatures_from_enrichment(
 # ---------------------------------------------------------------------------
 
 def main() -> None:
+    """Render the Signatures & Pathways page.
+
+    Displays enrichment dot plots, sortable enrichment tables, and
+    cross-comparison signature analysis (Jaccard overlap heatmap, core
+    signatures, unique signatures).
+    """
     st.title("Signatures & Pathways")
     st.caption(
         "Browse enrichment analysis results across comparisons and databases. "

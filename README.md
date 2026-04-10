@@ -1,8 +1,31 @@
 # NovoExplorer
 
+[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
+[![Streamlit](https://img.shields.io/badge/built%20with-Streamlit-FF4B4B.svg)](https://streamlit.io)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+
 Interactive Streamlit application for browsing and analyzing Novogene bulk RNA-Seq deliveries.
 
 Point it at your Novogene results folder and instantly get volcano plots, MA plots, enrichment dot plots, pathway views, gene-level exploration, and more -- no coding required.
+
+---
+
+## Table of Contents
+
+- [Quick Start](#quick-start)
+- [Features](#features)
+- [Supported Data](#supported-data)
+- [Advanced: Analysis Pipeline](#advanced-analysis-pipeline--multi-page-app)
+- [Configuration](#configuration)
+- [Project Structure](#project-structure)
+- [Requirements](#requirements)
+- [Running Tests](#running-tests)
+- [Troubleshooting](#troubleshooting)
+- [FAQ](#faq)
+- [Contributing](#contributing)
+- [License](#license)
+
+---
 
 ## Quick Start
 
@@ -25,9 +48,11 @@ streamlit run novogene_explorer.py
 
 No configuration files, no pipeline commands. Just point and explore.
 
+---
+
 ## Features
 
-NovoExplorer provides 11 interactive tabs:
+NovoExplorer provides **11 interactive tabs** for exploring your RNA-Seq data:
 
 | Tab | Description |
 |-----|-------------|
@@ -42,6 +67,16 @@ NovoExplorer provides 11 interactive tabs:
 | **Pathway Viewer** | Select a GO/KEGG/Reactome term, see member genes colored by log2FC |
 | **PPI Network** | Protein-protein interaction hub analysis, score filtering, gene neighborhood |
 | **Export** | Download Excel workbook or ZIP of CSVs with optional significance filtering |
+
+### Key Highlights
+
+- **Zero configuration** -- auto-detects Novogene delivery folder structures
+- **Colorblind-friendly** -- uses the Wong et al. palette throughout
+- **Publication-ready** -- export any figure as PNG or SVG
+- **Fast** -- Streamlit caching makes repeated exploration instant
+- **Organism support** -- works with both human and mouse data
+
+---
 
 ## Supported Data
 
@@ -72,6 +107,8 @@ your_results/
 
 Both `database_first` (e.g. `Enrichment/GO/CompA_vs_CompB/`) and `comparison_first` (e.g. `Enrichment/CompA_vs_CompB/GO/`) layouts are detected automatically.
 
+Numbered-prefix directories (e.g. `3.Quant/`, `4.Differential/`) are also recognized.
+
 ### Supported Enrichment Databases
 
 | Database | Description |
@@ -82,6 +119,8 @@ Both `database_first` (e.g. `Enrichment/GO/CompA_vs_CompB/`) and `comparison_fir
 | DO | Disease Ontology |
 | Reactome | Reactome pathway database |
 | PPI | Protein-protein interaction networks |
+
+---
 
 ## Advanced: Analysis Pipeline + Multi-Page App
 
@@ -124,6 +163,8 @@ The pipeline-backed app provides additional analytical features not available in
 | **Signatures & Pathways** | GSEA dot plots, Jaccard overlap heatmap, core/unique signature identification |
 | **Multi-Condition** | Fold-change concordance scatter between comparison pairs |
 
+---
+
 ## Configuration
 
 `config.yaml` is only needed for the pipeline (not for the main explorer). All keys are optional -- defaults are applied for anything omitted.
@@ -165,29 +206,28 @@ The pipeline-backed app provides additional analytical features not available in
 |-----|---------|-------------|
 | `log_level` | `"INFO"` | Python logging level (`DEBUG`, `INFO`, `WARNING`, `ERROR`). |
 
-## Requirements
+### Example `config.yaml`
 
-- **Python 3.10+** (tested on 3.10, 3.11, 3.12)
-- See `requirements.txt` for the full dependency list.
+```yaml
+project_name: "My RNA-Seq Experiment"
+data_dir: "./data"
+output_dir: "./results"
+organism: "mouse"
 
-Key dependencies: Streamlit, pandas, NumPy, Plotly, Matplotlib, pyDESeq2, gseapy, scikit-learn, UMAP, h5py, networkx.
+padj_threshold: 0.05
+log2fc_threshold: 1.0
+rerun_de: false
+comparisons: "auto"
 
-### Platform Notes
-
-`setup.sh` handles the following automatically:
-
-- **macOS (Intel x86_64):** gseapy has no prebuilt wheel for this platform. The setup script installs a minimal Rust toolchain via [rustup](https://rustup.rs) so pip can build gseapy from source. numba/llvmlite are pinned to versions that still ship Intel Mac wheels.
-- **macOS (Apple Silicon):** All dependencies install from prebuilt wheels. No extra toolchains required.
-- **Linux:** All dependencies install from prebuilt wheels.
-
-If you prefer to install manually:
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install --upgrade pip
-pip install --prefer-binary -r requirements.txt
+similarity_variable_genes: 5000
+signature_min_comparisons: 2
+gene_set_databases:
+  - "MSigDB_Hallmark_2020"
+  - "GO_Biological_Process_2023"
+  - "KEGG_2021_Mouse"
 ```
+
+---
 
 ## Project Structure
 
@@ -234,6 +274,34 @@ NovoExplorer/
     test_utils.py         #   Utility function tests
 ```
 
+---
+
+## Requirements
+
+- **Python 3.10+** (tested on 3.10, 3.11, 3.12)
+- See `requirements.txt` for the full dependency list.
+
+Key dependencies: Streamlit, pandas, NumPy, Plotly, Matplotlib, pyDESeq2, gseapy, scikit-learn, UMAP, h5py, networkx.
+
+### Platform Notes
+
+`setup.sh` handles the following automatically:
+
+- **macOS (Intel x86_64):** gseapy has no prebuilt wheel for this platform. The setup script installs a minimal Rust toolchain via [rustup](https://rustup.rs) so pip can build gseapy from source. numba/llvmlite are pinned to versions that still ship Intel Mac wheels.
+- **macOS (Apple Silicon):** All dependencies install from prebuilt wheels. No extra toolchains required.
+- **Linux:** All dependencies install from prebuilt wheels.
+
+If you prefer to install manually:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install --upgrade pip
+pip install --prefer-binary -r requirements.txt
+```
+
+---
+
 ## Running Tests
 
 ```bash
@@ -246,6 +314,14 @@ To run a specific module:
 ```bash
 pytest tests/test_diffexp.py -v
 ```
+
+To run with coverage:
+
+```bash
+pytest tests/ --cov=pipeline --cov=plotting --cov-report=term-missing
+```
+
+---
 
 ## Troubleshooting
 
@@ -286,3 +362,46 @@ cd /path/to/NovoExplorer
 source .venv/bin/activate
 streamlit run novogene_explorer.py
 ```
+
+### Plots don't export to PNG/SVG
+
+The kaleido package is required for static image export from Plotly. It is included in `requirements.txt`, but if it's missing:
+
+```bash
+pip install kaleido
+```
+
+### The app is slow on first load
+
+This is expected -- Streamlit caches data after the first load. Subsequent interactions with the same dataset will be significantly faster. If you're working with very large datasets, consider running the pipeline first and using the multi-page app, which loads pre-computed results from HDF5.
+
+---
+
+## FAQ
+
+**Q: Do I need to run the pipeline before using the app?**
+A: No. The main app (`novogene_explorer.py`) works directly with raw Novogene delivery folders. The pipeline is only needed for the advanced multi-page app features (PCA, UMAP, gene similarity, GSEA).
+
+**Q: What organisms are supported?**
+A: Human and mouse. Set the `organism` key in `config.yaml` to `"human"` or `"mouse"`.
+
+**Q: Can I use data from a provider other than Novogene?**
+A: The app expects the Novogene folder structure. If your data follows a different layout, you would need to reorganize it to match, or use the pipeline directly with a count matrix.
+
+**Q: How do I add custom gene sets for enrichment analysis?**
+A: Add the gene-set library name to the `gene_set_databases` list in `config.yaml`. Any library available in [Enrichr](https://maayanlab.cloud/Enrichr/#libraries) can be used.
+
+**Q: Can I change the significance thresholds?**
+A: Yes. In the main app, thresholds are adjustable via sidebar sliders. For the pipeline, set `padj_threshold` and `log2fc_threshold` in `config.yaml`.
+
+---
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines, code style, and how to submit changes.
+
+---
+
+## License
+
+This project is available under the MIT License. See [LICENSE](LICENSE) for details.

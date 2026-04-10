@@ -155,26 +155,88 @@ def _build_fc_map(deg_df: pd.DataFrame) -> dict[str, float]:
 
 @st.cache_data(show_spinner="Scanning folder structure…")
 def load_structure(data_dir: str) -> dict:
+    """Discover and cache the Novogene delivery folder structure.
+
+    Parameters
+    ----------
+    data_dir : str
+        Root path of the Novogene delivery folder.
+
+    Returns
+    -------
+    dict
+        Discovery results with keys ``quant_dir``, ``deg_dir``,
+        ``enrichment_dir``, ``qc_dir``, ``mapping_dir``,
+        ``sample_info_file``, and ``discovered_files``.
+    """
     return discover_novogene_structure(data_dir)
 
 
 @st.cache_data(show_spinner="Parsing expression matrices…")
 def load_expression(quant_dir: str | None) -> dict[str, pd.DataFrame | None]:
+    """Parse and cache count, FPKM, and TPM expression matrices.
+
+    Parameters
+    ----------
+    quant_dir : str or None
+        Path to the quantification directory.
+
+    Returns
+    -------
+    dict[str, pd.DataFrame or None]
+        Keys ``'counts'``, ``'fpkm'``, ``'tpm'``.
+    """
     return parse_expression_matrices(quant_dir)
 
 
 @st.cache_data(show_spinner="Parsing DEG results…")
 def load_deg(deg_dir: str | None) -> dict[str, pd.DataFrame]:
+    """Parse and cache differential expression tables for all comparisons.
+
+    Parameters
+    ----------
+    deg_dir : str or None
+        Path to the DEG results directory.
+
+    Returns
+    -------
+    dict[str, pd.DataFrame]
+        Mapping of comparison name to DEG DataFrame.
+    """
     return parse_deg_results(deg_dir)
 
 
 @st.cache_data(show_spinner="Parsing enrichment results…")
 def load_enrichment(enrichment_dir: str | None) -> dict[str, dict[str, pd.DataFrame]]:
+    """Parse and cache enrichment results (GO, KEGG, etc.) for all comparisons.
+
+    Parameters
+    ----------
+    enrichment_dir : str or None
+        Path to the enrichment results directory.
+
+    Returns
+    -------
+    dict[str, dict[str, pd.DataFrame]]
+        Nested mapping ``{comparison: {database: DataFrame}}``.
+    """
     return parse_enrichment_results(enrichment_dir)
 
 
 @st.cache_data(show_spinner="Parsing PPI networks…")
 def load_ppi(enrichment_dir: str | None) -> dict[str, pd.DataFrame]:
+    """Parse and cache protein-protein interaction tables.
+
+    Parameters
+    ----------
+    enrichment_dir : str or None
+        Path to the enrichment directory (PPI is a subdirectory within it).
+
+    Returns
+    -------
+    dict[str, pd.DataFrame]
+        Mapping ``{comparison: DataFrame}`` with interaction edges.
+    """
     return parse_ppi_results(enrichment_dir)
 
 
@@ -221,6 +283,18 @@ def load_diff_stat(deg_dir: str | None) -> pd.DataFrame | None:
 
 @st.cache_data(show_spinner="Parsing sample info…")
 def load_sample_info(path: str | None) -> pd.DataFrame | None:
+    """Parse and cache the sample-to-group mapping file.
+
+    Parameters
+    ----------
+    path : str or None
+        Path to the sample info file.
+
+    Returns
+    -------
+    pd.DataFrame or None
+        DataFrame with ``sample_id`` and ``group`` columns.
+    """
     return parse_sample_info(path)
 
 
