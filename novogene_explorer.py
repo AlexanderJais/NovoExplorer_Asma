@@ -178,25 +178,37 @@ def load_diff_stat(deg_dir: str | None) -> pd.DataFrame | None:
     """Try to find and read diff_stat.xls from the DEG directory tree.
 
     Searches the DEG directory itself, numbered container subdirectories
-    (e.g. ``1.deglist/``), and one further level of nesting.
+    (e.g. ``1.deglist/``), and one further level of nesting.  Only considers
+    tabular file extensions (``.xls``, ``.xlsx``, ``.tsv``, ``.csv``,
+    ``.txt``) so that PDFs and images with similar names are skipped.
     """
     if deg_dir is None:
         return None
     deg_path = Path(deg_dir)
+
+    _DIFF_STAT_PATTERNS = (
+        "diff_stat*.xls",
+        "diff_stat*.xlsx",
+        "diff_stat*.tsv",
+        "diff_stat*.csv",
+        "diff_stat*.txt",
+    )
+
     # Build search order: deg_dir, numbered containers, and their children
     search_dirs = [deg_path]
     for d in sorted(deg_path.iterdir()):
         if d.is_dir() and is_container_dir(d):
             search_dirs.append(d)
-            # Also search one level deeper (some deliveries nest further)
             for dd in sorted(d.iterdir()):
                 if dd.is_dir():
                     search_dirs.append(dd)
     for search_dir in search_dirs:
-        candidates = iglob_files(search_dir, ("diff_stat*",))
-        if candidates:
+        candidates = iglob_files(search_dir, _DIFF_STAT_PATTERNS)
+        for fpath in candidates:
             try:
-                return read_table_flexible(candidates[0])
+                df = read_table_flexible(fpath)
+                if df is not None and not df.empty:
+                    return df
             except Exception:
                 pass
     return None
