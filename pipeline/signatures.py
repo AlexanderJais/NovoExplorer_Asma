@@ -29,7 +29,7 @@ logger = setup_logger(__name__)
 _DEFAULT_GENE_SET_DBS = [
     "MSigDB_Hallmark_2020",
     "GO_Biological_Process_2023",
-    "KEGG_2021_Human",
+    "KEGG_2021_Mouse",
 ]
 
 

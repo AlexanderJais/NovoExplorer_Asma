@@ -68,7 +68,7 @@ if [ ! -f "$GENE_SETS_DIR/MSigDB_Hallmark_2020.gmt" ]; then
     python3 -c "
 import gseapy
 try:
-    lib = gseapy.get_library('MSigDB_Hallmark_2020', organism='Human')
+    lib = gseapy.get_library('MSigDB_Hallmark_2020', organism='Mouse')
     with open('$GENE_SETS_DIR/MSigDB_Hallmark_2020.gmt', 'w') as f:
         for term, genes in lib.items():
             f.write(term + '\tna\t' + '\t'.join(genes) + '\n')
@@ -83,7 +83,7 @@ if [ ! -f "$GENE_SETS_DIR/GO_Biological_Process_2023.gmt" ]; then
     python3 -c "
 import gseapy
 try:
-    lib = gseapy.get_library('GO_Biological_Process_2023', organism='Human')
+    lib = gseapy.get_library('GO_Biological_Process_2023', organism='Mouse')
     with open('$GENE_SETS_DIR/GO_Biological_Process_2023.gmt', 'w') as f:
         for term, genes in lib.items():
             f.write(term + '\tna\t' + '\t'.join(genes) + '\n')
@@ -93,18 +93,18 @@ except Exception as e:
 "
 fi
 
-if [ ! -f "$GENE_SETS_DIR/KEGG_2021_Human.gmt" ]; then
+if [ ! -f "$GENE_SETS_DIR/KEGG_2021_Mouse.gmt" ]; then
     echo "Downloading KEGG gene sets..."
     python3 -c "
 import gseapy
 try:
-    lib = gseapy.get_library('KEGG_2021_Human', organism='Human')
-    with open('$GENE_SETS_DIR/KEGG_2021_Human.gmt', 'w') as f:
+    lib = gseapy.get_library('KEGG_2021_Mouse', organism='Mouse')
+    with open('$GENE_SETS_DIR/KEGG_2021_Mouse.gmt', 'w') as f:
         for term, genes in lib.items():
             f.write(term + '\tna\t' + '\t'.join(genes) + '\n')
-    print('  Downloaded KEGG_2021_Human')
+    print('  Downloaded KEGG_2021_Mouse')
 except Exception as e:
-    print(f'  Warning: Could not download KEGG_2021_Human: {e}')
+    print(f'  Warning: Could not download KEGG_2021_Mouse: {e}')
 "
 fi
 

@@ -23,7 +23,7 @@ output_dir: "./results"
 # --------------------------------------------------------------------------
 # Determines gene-name mappings (ENSG -> symbol) and which gene-set
 # organism is passed to gseapy.  Supported values: "human", "mouse".
-organism: "human"
+organism: "mouse"
 
 # --------------------------------------------------------------------------
 # Differential expression
@@ -65,4 +65,4 @@ signature_min_comparisons: 2
 gene_set_databases:
   - "MSigDB_Hallmark_2020"
   - "GO_Biological_Process_2023"
-  - "KEGG_2021_Human"
+  - "KEGG_2021_Mouse"

@@ -233,10 +233,23 @@ def _list_subdirs(parent: Path) -> list[str]:
 
 
 def _looks_like_novogene(p: Path) -> bool:
-    """Quick check: does this folder contain Differential/ or Enrichment/?"""
-    for child in ("Differential", "differential", "Enrichment", "enrichment"):
-        if (p / child).is_dir():
-            return True
+    """Quick check: does this folder contain Differential/ or Enrichment/?
+
+    Also recognises numbered-prefix variants (e.g. ``4.Differential``,
+    ``5.Enrichment``) used in some Novogene deliveries.
+    """
+    _MARKER_NAMES = {"differential", "enrichment"}
+    try:
+        for child in p.iterdir():
+            if not child.is_dir():
+                continue
+            name = child.name.lower()
+            # Strip a leading numbered prefix (e.g. "4.Differential" -> "differential")
+            stripped = re.sub(r"^\d+\.", "", name)
+            if name in _MARKER_NAMES or stripped in _MARKER_NAMES:
+                return True
+    except PermissionError:
+        pass
     return False
 
 

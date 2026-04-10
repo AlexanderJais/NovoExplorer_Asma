@@ -365,7 +365,7 @@ def read_table_flexible(path) -> pd.DataFrame:
 # ===================================================================
 
 _DEFAULT_CONFIG = {
-    "organism": "human",
+    "organism": "mouse",
     "log2fc_threshold": 1.0,
     "padj_threshold": 0.05,
     "top_n_genes": 50,
