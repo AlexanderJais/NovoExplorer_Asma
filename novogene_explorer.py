@@ -158,6 +158,11 @@ def load_structure(data_dir: str) -> dict:
     return discover_novogene_structure(data_dir)
 
 
+@st.cache_data(show_spinner="Parsing expression matrices…")
+def load_expression(quant_dir: str | None) -> dict[str, pd.DataFrame | None]:
+    return parse_expression_matrices(quant_dir)
+
+
 @st.cache_data(show_spinner="Parsing DEG results…")
 def load_deg(deg_dir: str | None) -> dict[str, pd.DataFrame]:
     return parse_deg_results(deg_dir)
@@ -1899,8 +1904,8 @@ with tab_diagnostics:
     diag_lines.append("PARSED DATA SUMMARY")
     diag_lines.append("-" * 40)
 
-    # Expression matrices
-    expr = parse_expression_matrices(structure.get("quant_dir"))
+    # Expression matrices (use cached loader to avoid re-parsing on every rerun)
+    expr = load_expression(str(structure["quant_dir"]) if structure["quant_dir"] else None)
     for mat_name in ("counts", "fpkm", "tpm"):
         df = expr.get(mat_name)
         if df is not None:

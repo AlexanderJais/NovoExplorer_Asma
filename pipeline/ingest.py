@@ -328,12 +328,19 @@ def parse_deg_results(deg_dir: str | Path | None) -> Dict[str, pd.DataFrame]:
     )
 
     # Collect comparison directories — unwrap numbered containers first.
+    # Only descend into containers whose stripped name suggests DEG lists
+    # (e.g. "1.deglist"); skip unrelated containers like "2.cluster",
+    # "3.Annotation" which don't hold per-comparison DEG tables.
+    _DEGLIST_NAMES = {"deglist", "deg_list", "deg"}
     comparison_dirs: list[Path] = []
     for subdir in sorted(deg_dir.iterdir()):
         if not subdir.is_dir():
             continue
         if is_container_dir(subdir):
-            # Descend into numbered containers like 1.deglist/
+            stripped = _strip_numbered_prefix(subdir.name).lower()
+            if stripped not in _DEGLIST_NAMES:
+                logger.info("  Skipping non-DEG container: %s", subdir.name)
+                continue
             logger.info("  Entering container directory: %s", subdir.name)
             for inner in sorted(subdir.iterdir()):
                 if inner.is_dir():
