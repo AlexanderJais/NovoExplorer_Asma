@@ -36,9 +36,9 @@ _MAPPING_PATTERNS = ("bind*", "mapping*", "02.bind*", "03.bind*", "04.bind*")
 _SAMPLE_INFO_NAMES = ("sample_info.txt", "group_info.txt", "sample_group.txt")
 
 # Expression matrix file patterns
-_COUNT_PATTERNS = ("gene_count_matrix*", "readcount*")
-_FPKM_PATTERNS = ("gene_fpkm_matrix*", "FPKM*")
-_TPM_PATTERNS = ("gene_tpm_matrix*", "TPM*")
+_COUNT_PATTERNS = ("gene_count_matrix*", "gene_count.*", "readcount*")
+_FPKM_PATTERNS = ("gene_fpkm_matrix*", "gene_fpkm.*", "FPKM*")
+_TPM_PATTERNS = ("gene_tpm_matrix*", "gene_tpm.*", "TPM*")
 
 
 def _strip_numbered_prefix(name: str) -> str:

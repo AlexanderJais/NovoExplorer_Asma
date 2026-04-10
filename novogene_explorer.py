@@ -174,14 +174,24 @@ def load_ppi(enrichment_dir: str | None) -> dict[str, pd.DataFrame]:
 
 @st.cache_data(show_spinner="Reading diff_stat.xls…")
 def load_diff_stat(deg_dir: str | None) -> pd.DataFrame | None:
-    """Try to find and read diff_stat.xls from the DEG directory tree."""
+    """Try to find and read diff_stat.xls from the DEG directory tree.
+
+    Searches the DEG directory itself, numbered container subdirectories
+    (e.g. ``1.deglist/``), and one further level of nesting.
+    """
     if deg_dir is None:
         return None
     deg_path = Path(deg_dir)
-    # Search in deg_dir itself and one level of numbered containers
-    for search_dir in [deg_path] + sorted(
-        d for d in deg_path.iterdir() if d.is_dir() and is_container_dir(d)
-    ):
+    # Build search order: deg_dir, numbered containers, and their children
+    search_dirs = [deg_path]
+    for d in sorted(deg_path.iterdir()):
+        if d.is_dir() and is_container_dir(d):
+            search_dirs.append(d)
+            # Also search one level deeper (some deliveries nest further)
+            for dd in sorted(d.iterdir()):
+                if dd.is_dir():
+                    search_dirs.append(dd)
+    for search_dir in search_dirs:
         candidates = iglob_files(search_dir, ("diff_stat*",))
         if candidates:
             try:
