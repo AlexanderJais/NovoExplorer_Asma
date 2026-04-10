@@ -77,6 +77,7 @@ if "_log" not in st.session_state:
 
 from pipeline.ingest import (
     discover_novogene_structure,
+    parse_expression_matrices,
     parse_deg_results,
     parse_enrichment_results,
     parse_ppi_results,
@@ -418,10 +419,10 @@ with st.sidebar.expander("Log", expanded=False):
 
 (tab_overview, tab_gene, tab_comparison, tab_enrichment,
  tab_ma, tab_venn, tab_ranked, tab_degsummary, tab_pathway, tab_ppi,
- tab_export) = st.tabs([
+ tab_export, tab_diagnostics) = st.tabs([
     "Overview", "Gene Explorer", "Comparison Browser", "Enrichment",
     "MA Plot", "Venn / UpSet", "Ranked Genes", "DEG Summary", "Pathway Viewer", "PPI Network",
-    "Export",
+    "Export", "Diagnostics",
 ])
 
 
@@ -1807,3 +1808,175 @@ with tab_export:
                 mime="application/zip",
                 key="export_zip_download",
             )
+
+
+# =========================================================================
+# TAB 12: Diagnostics
+# =========================================================================
+with tab_diagnostics:
+    st.header("Diagnostics")
+    st.caption(
+        "Directory tree, discovery results, and session log. "
+        "Download the full report to share when debugging."
+    )
+
+    # --- Build the diagnostics report ---
+    def _build_directory_tree(root: Path, prefix: str = "", max_depth: int = 4, _depth: int = 0) -> list[str]:
+        """Return lines representing a directory tree (like the ``tree`` command)."""
+        lines: list[str] = []
+        if _depth == 0:
+            lines.append(str(root))
+        if _depth >= max_depth:
+            lines.append(f"{prefix}... (max depth reached)")
+            return lines
+        try:
+            entries = sorted(root.iterdir(), key=lambda e: (not e.is_dir(), e.name.lower()))
+        except PermissionError:
+            lines.append(f"{prefix}[permission denied]")
+            return lines
+        for i, entry in enumerate(entries):
+            is_last = i == len(entries) - 1
+            connector = "└── " if is_last else "├── "
+            if entry.is_dir():
+                lines.append(f"{prefix}{connector}{entry.name}/")
+                extension = "    " if is_last else "│   "
+                lines.extend(_build_directory_tree(entry, prefix + extension, max_depth, _depth + 1))
+            else:
+                size = entry.stat().st_size
+                if size < 1024:
+                    size_str = f"{size} B"
+                elif size < 1024 * 1024:
+                    size_str = f"{size / 1024:.1f} KB"
+                else:
+                    size_str = f"{size / (1024 * 1024):.1f} MB"
+                lines.append(f"{prefix}{connector}{entry.name}  ({size_str})")
+        return lines
+
+    diag_lines: list[str] = []
+    diag_lines.append("=" * 72)
+    diag_lines.append("NovoExplorer Diagnostics Report")
+    diag_lines.append(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    diag_lines.append(f"Data folder: {data_dir}")
+    diag_lines.append("=" * 72)
+
+    # Section 1: Directory tree
+    diag_lines.append("")
+    diag_lines.append("-" * 40)
+    diag_lines.append("DIRECTORY TREE")
+    diag_lines.append("-" * 40)
+    tree_lines = _build_directory_tree(Path(data_dir))
+    diag_lines.extend(tree_lines)
+
+    # Section 2: Discovery results
+    diag_lines.append("")
+    diag_lines.append("-" * 40)
+    diag_lines.append("DISCOVERY RESULTS")
+    diag_lines.append("-" * 40)
+    for key in ("quant_dir", "deg_dir", "enrichment_dir", "qc_dir", "mapping_dir"):
+        val = structure.get(key)
+        status = str(val) if val else "NOT FOUND"
+        diag_lines.append(f"  {key:20s} -> {status}")
+    si = structure.get("sample_info_file")
+    diag_lines.append(f"  {'sample_info_file':20s} -> {si if si else 'NOT FOUND'}")
+    n_files = len(structure.get("discovered_files", []))
+    diag_lines.append(f"  Total files discovered: {n_files}")
+
+    # Section 3: Parsed data summary
+    diag_lines.append("")
+    diag_lines.append("-" * 40)
+    diag_lines.append("PARSED DATA SUMMARY")
+    diag_lines.append("-" * 40)
+
+    # Expression matrices
+    expr = parse_expression_matrices(structure.get("quant_dir"))
+    for mat_name in ("counts", "fpkm", "tpm"):
+        df = expr.get(mat_name)
+        if df is not None:
+            diag_lines.append(f"  Expression/{mat_name:6s}: {df.shape[0]} genes x {df.shape[1]} samples")
+        else:
+            diag_lines.append(f"  Expression/{mat_name:6s}: not found")
+
+    # DEG
+    diag_lines.append(f"  DEG comparisons: {len(deg)}")
+    for comp_name, df in sorted(deg.items()):
+        n_sig = len(df[(df.get("padj", pd.Series(1.0)) < 0.05)]) if "padj" in df.columns else "?"
+        diag_lines.append(f"    {comp_name}: {len(df)} genes ({n_sig} significant)")
+
+    # Enrichment
+    diag_lines.append(f"  Enrichment comparisons: {len(enrichment)}")
+    for comp_name, dbs in sorted(enrichment.items()):
+        db_summary = ", ".join(f"{db}({len(edf)})" for db, edf in sorted(dbs.items()))
+        diag_lines.append(f"    {comp_name}: {db_summary}")
+
+    # PPI
+    diag_lines.append(f"  PPI networks: {len(ppi)}")
+    for comp_name, df in sorted(ppi.items()):
+        diag_lines.append(f"    {comp_name}: {len(df)} interactions")
+
+    # diff_stat
+    if diff_stat is not None:
+        diag_lines.append(f"  diff_stat.xls: {diff_stat.shape[0]} rows, columns: {list(diff_stat.columns)}")
+    else:
+        diag_lines.append("  diff_stat.xls: NOT FOUND")
+
+    # Sample info
+    if sample_info is not None:
+        diag_lines.append(f"  sample_info: {sample_info.shape[0]} samples, columns: {list(sample_info.columns)}")
+    else:
+        diag_lines.append("  sample_info: not found")
+
+    # Section 4: Session log
+    diag_lines.append("")
+    diag_lines.append("-" * 40)
+    diag_lines.append("SESSION LOG")
+    diag_lines.append("-" * 40)
+    log_lines = st.session_state.get("_log", [])
+    if log_lines:
+        diag_lines.extend(log_lines)
+    else:
+        diag_lines.append("  (no log messages captured)")
+
+    diag_lines.append("")
+    diag_lines.append("=" * 72)
+    diag_lines.append("END OF REPORT")
+    diag_lines.append("=" * 72)
+
+    full_report = "\n".join(diag_lines)
+
+    # --- Display in the tab ---
+    st.subheader("Directory Tree")
+    st.code("\n".join(tree_lines), language="text")
+
+    st.subheader("Discovery Results")
+    discovery_data = []
+    for key in ("quant_dir", "deg_dir", "enrichment_dir", "qc_dir", "mapping_dir", "sample_info_file"):
+        val = structure.get(key)
+        discovery_data.append({
+            "Key": key,
+            "Path": str(val) if val else None,
+            "Status": "Found" if val else "Not found",
+        })
+    st.dataframe(pd.DataFrame(discovery_data), width="stretch", hide_index=True)
+
+    col_counts = st.columns(4)
+    col_counts[0].metric("Files discovered", n_files)
+    col_counts[1].metric("DEG comparisons", len(deg))
+    col_counts[2].metric("Enrichment comparisons", len(enrichment))
+    col_counts[3].metric("PPI networks", len(ppi))
+
+    st.subheader("Session Log")
+    if log_lines:
+        st.code("\n".join(log_lines), language="log")
+    else:
+        st.info("No log messages captured yet.")
+
+    # --- Download button ---
+    st.divider()
+    st.download_button(
+        "Download full diagnostics report",
+        data=full_report,
+        file_name=f"novoexplorer_diagnostics_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log",
+        mime="text/plain",
+        key="download_diagnostics",
+        type="primary",
+    )
